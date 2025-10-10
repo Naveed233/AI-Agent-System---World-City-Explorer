@@ -1,0 +1,34 @@
+{
+  "name": "city-information-assistant",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx tsx test-agent.ts",
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start",
+    "test:quick": "npx tsx test-agent.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.48",
+    "@mastra/core": "^0.20.2",
+    "@mastra/libsql": "^0.15.1",
+    "@mastra/loggers": "^0.10.15",
+    "@mastra/memory": "^0.15.6",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.1",
+    "mastra": "^0.15.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
