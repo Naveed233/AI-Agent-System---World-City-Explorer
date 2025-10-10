@@ -1,6 +1,14 @@
 # 🏙️ City Information Assistant
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Mastra](https://img.shields.io/badge/Mastra-0.20-green.svg)](https://mastra.ai)
+[![AI SDK](https://img.shields.io/badge/AI%20SDK-v5-orange.svg)](https://sdk.vercel.ai)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+
 A production-ready AI Agent application built with **Mastra** and **AI SDK v5** that helps users gather comprehensive information about cities worldwide and plan their visits effectively.
+
+> **🎯 Assignment Demonstration**: This project showcases advanced agentic AI capabilities including tool orchestration, multi-turn conversations, streaming responses, and production-ready architecture.
 
 ## 📋 Overview
 
