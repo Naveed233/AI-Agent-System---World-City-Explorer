@@ -86,6 +86,10 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = f"streamlit-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+if "resource_id" not in st.session_state:
+    # Use a unique ID per browser session for memory isolation
+    import uuid
+    st.session_state.resource_id = f"user-{uuid.uuid4().hex[:8]}"
 
 # Header
 col1, col2 = st.columns([3, 1])
@@ -179,15 +183,21 @@ if user_input or (hasattr(st.session_state, 'user_input') and st.session_state.u
         # Create placeholder for streaming
         with st.spinner("🤔 Thinking..."):
             try:
-                # Prepare messages for API (only user messages, not full history)
-                api_messages = [{"role": "user", "content": user_input}]
+                # Prepare FULL conversation history for API (for context/memory)
+                api_messages = []
+                for msg in st.session_state.messages:
+                    api_messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
                 
-                # Call Mastra API with streaming
+                # Call Mastra API with streaming (with resourceId for memory)
                 response = requests.post(
                     f"{MASTRA_API_URL}/agents/{AGENT_NAME}/stream",
                     json={
-                        "messages": api_messages,
-                        "threadId": st.session_state.thread_id
+                        "messages": api_messages,  # Full history for context!
+                        "threadId": st.session_state.thread_id,
+                        "resourceId": st.session_state.resource_id  # Required for Memory
                     },
                     stream=True,
                     timeout=120

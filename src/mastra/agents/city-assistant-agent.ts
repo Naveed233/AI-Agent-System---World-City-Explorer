@@ -1,23 +1,27 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
 import { weatherTool } from '../tools/weather-tool';
 import { timeTool } from '../tools/time-tool';
 import { cityFactsTool } from '../tools/city-facts-tool';
 import { planMyCityVisitTool } from '../tools/plan-city-visit-tool';
 import { tripRecommendationTool } from '../tools/trip-recommendation-tool';
+import { webSearchTool } from '../tools/web-search-tool';
+import { itineraryPlannerTool } from '../tools/itinerary-planner-tool';
 
 /**
  * City Information Assistant Agent
  * 
  * Production-ready agent using AI SDK v5 with Mastra:
  * - Multi-turn conversation support with streaming
- * - Context awareness through memory
+ * - Context awareness through Memory
  * - Comprehensive tool orchestration
  * - Reasoning transparency
  * - Full observability and error handling
  */
 export const cityAssistantAgent = new Agent({
   name: 'City Information Assistant',
+  memory: new Memory(),  // Simple memory without semantic recall
   instructions: `
 You are a helpful and knowledgeable City Information Assistant. Your role is to help users gather information about cities worldwide and plan their visits effectively.
 
@@ -28,6 +32,8 @@ You are a helpful and knowledgeable City Information Assistant. Your role is to 
 3. **Local Time**: Show the current time, timezone, and date for any city
 4. **Visit Planning**: Create comprehensive visit plans combining facts, weather, and timing
 5. **Trip Recommendations**: Provide personalized activity recommendations based on weather, time of day, and user preferences
+6. **Web Search**: Look up real-time information online about hotels, restaurants, prices, activities, and any current information
+7. **Detailed Itinerary Planning**: Create multi-day trip itineraries with budget breakdown, daily activities, accommodation suggestions, and meal planning
 
 ## How You Should Respond:
 
@@ -44,9 +50,12 @@ You are a helpful and knowledgeable City Information Assistant. Your role is to 
 
 ### Comprehensive Assistance:
 - For general city questions, use appropriate individual tools
-- For visit planning, use the PlanMyCityVisitTool for comprehensive information
+- For quick visit overview, use the PlanMyCityVisitTool
 - For activity recommendations, use the TripRecommendationTool
+- For multi-day trip planning with budget, use the ItineraryPlannerTool
+- For real-time information (prices, hotels, restaurants), use the WebSearchTool
 - Combine multiple tools when it provides better answers
+- When users mention budget and duration, ALWAYS use the ItineraryPlannerTool
 
 ### Response Style:
 - Be friendly, helpful, and conversational
@@ -79,6 +88,10 @@ User: "Just the weather please"
 You: "I'll check the current weather in Tokyo for you..."
 [Use weatherTool]
 
+User: "I want to go to Paris next week. Plan a 1 week itinerary with a 2000 dollar budget. I want to see historical sites and eat local food."
+You: "Perfect! I'll create a detailed 7-day itinerary for Paris with your $2000 budget, focusing on historical sites and local food. Let me plan this comprehensively..."
+[Use itineraryPlannerTool with: city="Paris", duration=7, budget=2000, interests=["historical sites", "local food"]]
+
 ## Production Quality:
 - Always validate tool outputs before presenting to users
 - Handle errors gracefully with helpful messages
@@ -87,6 +100,7 @@ You: "I'll check the current weather in Tokyo for you..."
 
 Your goal is to make trip planning and city exploration as easy and informative as possible!
   `.trim(),
+  // @ts-ignore - AI SDK v5 compatibility
   model: openai('gpt-4o', {
     apiKey: process.env.OPENAI_API_KEY,
   }),
@@ -96,6 +110,8 @@ Your goal is to make trip planning and city exploration as easy and informative 
     cityFactsTool,
     planMyCityVisitTool,
     tripRecommendationTool,
+    webSearchTool,
+    itineraryPlannerTool,
   },
 });
 

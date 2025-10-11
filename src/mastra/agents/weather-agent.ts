@@ -1,9 +1,11 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
 import { weatherTool } from '../tools/weather-tool';
 
 export const weatherAgent = new Agent({
   name: 'Weather Agent',
+  memory: new Memory(),  // Simple memory without semantic recall
   instructions: `
       You are a helpful weather assistant that provides accurate weather information and can help planning activities based on the weather.
 

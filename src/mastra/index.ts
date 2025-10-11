@@ -9,6 +9,8 @@ import { timeTool } from './tools/time-tool';
 import { cityFactsTool } from './tools/city-facts-tool';
 import { planMyCityVisitTool } from './tools/plan-city-visit-tool';
 import { tripRecommendationTool } from './tools/trip-recommendation-tool';
+import { webSearchTool } from './tools/web-search-tool';
+import { itineraryPlannerTool } from './tools/itinerary-planner-tool';
 
 /**
  * City Information Assistant - Mastra Core Configuration
@@ -34,6 +36,8 @@ export const mastra = new Mastra({
     cityFactsTool,
     planMyCityVisitTool,
     tripRecommendationTool,
+    webSearchTool,
+    itineraryPlannerTool,
   },
   storage: new LibSQLStore({
     // Persistent storage for production use

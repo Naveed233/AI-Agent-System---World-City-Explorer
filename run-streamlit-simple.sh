@@ -1,14 +1,15 @@
 #!/bin/bash
 
-# Run City Information Assistant Streamlit UI (Simple Direct Integration)
+# Run City Information Assistant Streamlit UI
 
-echo "🏙️  Starting City Information Assistant Streamlit UI (Direct Integration)..."
+echo "🏙️  Starting City Information Assistant Streamlit UI..."  
 echo ""
-echo "This version uses Mastra SDK directly (no API needed)"
+echo "Make sure Mastra server is running on port 4111!"
+echo "If not, run: npm run dev"
 echo ""
 echo "═══════════════════════════════════════════════════════════"
 
 cd "$(dirname "$0")"
 source streamlit-venv/bin/activate
-streamlit run streamlit_simple.py --server.port 8502 --server.headless true
+streamlit run streamlit_app.py --server.port 8502 --server.headless true
 
