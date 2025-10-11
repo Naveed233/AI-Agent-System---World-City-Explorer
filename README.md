@@ -650,3 +650,4 @@ Built as a demonstration of production-ready AI agent development with Mastra.
 ---
 
 **Ready to explore cities worldwide? Start the app and ask about your favorite destination!** 🌍✈️
+
