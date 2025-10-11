@@ -1,10 +1,8 @@
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
-import { weatherWorkflow } from './workflows/weather-workflow';
 import { cityPlannerWorkflow } from './workflows/city-planner-workflow';
 import { enhancedCityPlannerWorkflow } from './workflows/enhanced-city-planner-workflow';
-import { weatherAgent } from './agents/weather-agent';
 import { cityAssistantAgent } from './agents/city-assistant-agent';
 import { weatherTool } from './tools/weather-tool';
 import { timeTool } from './tools/time-tool';
@@ -33,12 +31,10 @@ import { groupTravelTool } from './tools/group-travel-tool';
  */
 export const mastra = new Mastra({
   workflows: { 
-    weatherWorkflow,
     cityPlannerWorkflow,
     enhancedCityPlannerWorkflow,
   },
   agents: { 
-    weatherAgent,
     cityAssistantAgent,
   },
   tools: {
