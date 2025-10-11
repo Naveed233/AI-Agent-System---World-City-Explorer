@@ -37,22 +37,6 @@ export const mastra = new Mastra({
   agents: { 
     cityAssistantAgent,
   },
-  tools: {
-    weatherTool,
-    timeTool,
-    cityFactsTool,
-    planMyCityVisitTool,
-    tripRecommendationTool,
-    webSearchTool,
-    itineraryPlannerTool,
-    flightSearchTool,
-    hotelBookingTool,
-    currencyConversionTool,
-    visaRequirementsTool,
-    travelInsuranceTool,
-    seasonOptimizerTool,
-    groupTravelTool,
-  },
   storage: new LibSQLStore({
     // Persistent storage for production use
     url: "file:./mastra.db",

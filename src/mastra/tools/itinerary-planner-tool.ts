@@ -66,12 +66,12 @@ export const itineraryPlannerTool = createTool({
       thinking += '📍 Step 1: Gathering city information and weather forecast...\n';
       
       const [cityInfo, weatherInfo] = await Promise.all([
-        cityFactsTool.execute({ context: { city } }),
-        weatherTool.execute({ context: { city, country } }),
+        cityFactsTool.execute({ context: { city }, runtimeContext: {} as any }),
+        weatherTool.execute({ context: { city, country }, runtimeContext: {} as any }),
       ]);
       
       thinking += `✅ Got info: ${cityInfo.description}\n`;
-      thinking += `🌤️ Weather: ${weatherInfo.temperature}°C, ${weatherInfo.conditions}\n\n`;
+      thinking += `🌤️ Weather: ${weatherInfo.temperature}°C, ${weatherInfo.condition}\n\n`;
       
       // Step 2: Calculate budget breakdown
       thinking += '💵 Step 2: Breaking down your budget...\n';
@@ -123,6 +123,7 @@ export const itineraryPlannerTool = createTool({
           query: `budget hotels in ${city} under $${perNightBudget} per night`,
           maxResults: 3,
         },
+        runtimeContext: {} as any,
       });
       
       const accommodationSuggestions = [
@@ -147,6 +148,7 @@ export const itineraryPlannerTool = createTool({
               query: `${interest} in ${city} ${country || ''} recommendations`,
               maxResults: 2,
             },
+            runtimeContext: {} as any,
           })
         )
       );
@@ -177,7 +179,7 @@ export const itineraryPlannerTool = createTool({
         activities.push({
           time: '09:00 AM',
           activity: `${primaryInterest === 'historical sites' ? 'Visit Historical Site' : primaryInterest === 'museums' ? 'Museum Tour' : 'Morning Exploration'}`,
-          description: `Explore ${primaryInterest} - ${cityInfo.notableFeatures ? cityInfo.notableFeatures[0] : 'popular attraction'}. Book tickets online in advance for discounts.`,
+          description: `Explore ${primaryInterest} - ${cityInfo.notableFor ? cityInfo.notableFor[0] : 'popular attraction'}. Book tickets online in advance for discounts.`,
           estimatedCost: morningCost,
         });
         totalDayCost += morningCost;

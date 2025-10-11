@@ -53,7 +53,7 @@ export const visaRequirementsTool = createTool({
     let visaRequired = true;
     let visaType = 'Tourist Visa (Embassy Application)';
     let maxStayWithoutVisa: number | undefined = undefined;
-    let processingTime = '2-4 weeks';
+    let processingTime: string | undefined = '2-4 weeks';
     let cost = '$50-$200';
 
     if (isVisaFree) {

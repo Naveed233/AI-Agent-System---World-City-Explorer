@@ -39,9 +39,7 @@ export const tripRecommendationTool = createTool({
     try {
       weatherData = await weatherTool.execute({
         context: { city, country },
-        mastra,
-        runId: '',
-        machineId: '',
+        runtimeContext: {} as any,
       });
     } catch (error) {
       console.error('Failed to fetch weather:', error);
@@ -50,9 +48,7 @@ export const tripRecommendationTool = createTool({
     try {
       timeData = await timeTool.execute({
         context: { city, country },
-        mastra,
-        runId: '',
-        machineId: '',
+        runtimeContext: {} as any,
       });
     } catch (error) {
       console.error('Failed to fetch time:', error);

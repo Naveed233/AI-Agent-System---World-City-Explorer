@@ -56,9 +56,7 @@ This will give you a complete picture to plan your visit effectively.`;
       functionCalls[0].status = 'executing';
       const factsResult = await cityFactsTool.execute({
         context: { city },
-        mastra,
-        runId: '',
-        machineId: '',
+        runtimeContext: {} as any,
       });
       results.facts = factsResult;
       functionCalls[0].status = 'completed';
@@ -74,9 +72,7 @@ This will give you a complete picture to plan your visit effectively.`;
       functionCalls[1].status = 'executing';
       const weatherResult = await weatherTool.execute({
         context: { city, country },
-        mastra,
-        runId: '',
-        machineId: '',
+        runtimeContext: {} as any,
       });
       results.weather = weatherResult;
       functionCalls[1].status = 'completed';
@@ -92,9 +88,7 @@ This will give you a complete picture to plan your visit effectively.`;
       functionCalls[2].status = 'executing';
       const timeResult = await timeTool.execute({
         context: { city, country },
-        mastra,
-        runId: '',
-        machineId: '',
+        runtimeContext: {} as any,
       });
       results.time = timeResult;
       functionCalls[2].status = 'completed';
