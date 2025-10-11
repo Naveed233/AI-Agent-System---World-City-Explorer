@@ -8,7 +8,7 @@
 
 A production-ready AI Agent application built with **Mastra** and **AI SDK v5** that helps users gather comprehensive information about cities worldwide and plan their visits effectively.
 
-> **🎯 Assignment Demonstration**: This project showcases advanced agentic AI capabilities including tool orchestration, multi-turn conversations, streaming responses, and production-ready architecture.
+This project showcases advanced agentic AI capabilities including tool orchestration, multi-turn conversations, streaming responses, and production-ready architecture.
 
 ## 📋 Overview
 
