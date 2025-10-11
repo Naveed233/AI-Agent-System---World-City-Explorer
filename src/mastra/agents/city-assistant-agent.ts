@@ -1,7 +1,5 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
-import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
 import { weatherTool } from '../tools/weather-tool';
 import { timeTool } from '../tools/time-tool';
 import { cityFactsTool } from '../tools/city-facts-tool';
@@ -99,10 +97,5 @@ Your goal is to make trip planning and city exploration as easy and informative 
     planMyCityVisitTool,
     tripRecommendationTool,
   },
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db',
-    }),
-  }),
 });
 
