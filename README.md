@@ -6,7 +6,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
-A **production-ready AI-powered travel planning platform** built with **Mastra** and **AI SDK v5** that provides comprehensive trip planning including flights, hotels, visa requirements, travel insurance, and more.
+A AI-powered travel planning platform built with **Mastra** and **AI SDK v5** that provides comprehensive trip planning including flights, hotels, visa requirements, travel insurance, and more.
 
 **From simple city information to complete multi-city itineraries with budget optimization!**
 
