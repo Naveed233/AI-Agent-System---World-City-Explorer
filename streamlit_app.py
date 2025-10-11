@@ -21,36 +21,62 @@ AGENT_NAME = "cityAssistantAgent"
 # Custom CSS
 st.markdown("""
 <style>
+    /* Dark background */
     .main {
         padding: 2rem;
+        background-color: #1a1a1a;
     }
+    
+    /* Input styling */
     .stTextInput > div > div > input {
         font-size: 16px;
+        background-color: #2d2d2d;
+        color: #ffffff;
+        border: none;
     }
+    
+    /* Remove borders, clean messages */
     .chat-message {
-        padding: 1.5rem;
-        border-radius: 0.5rem;
+        padding: 1rem 0;
         margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
+        border: none;
     }
+    
     .user-message {
-        background-color: #e3f2fd;
-        margin-left: 20%;
+        margin-left: 10%;
     }
+    
     .assistant-message {
-        background-color: #f5f5f5;
-        margin-right: 20%;
+        margin-right: 10%;
     }
+    
     .message-content {
-        margin: 0;
+        margin: 0.5rem 0;
         font-size: 16px;
         line-height: 1.6;
+        color: #e0e0e0;
     }
+    
     .message-time {
-        font-size: 12px;
-        color: #666;
-        margin-top: 0.5rem;
+        font-size: 11px;
+        color: #888;
+        margin-top: 0.3rem;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #2d2d2d;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #3d3d3d;
+        color: #ffffff;
+        border: none;
+    }
+    
+    .stButton > button:hover {
+        background-color: #4d4d4d;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -150,36 +176,69 @@ if user_input or (hasattr(st.session_state, 'user_input') and st.session_state.u
             "timestamp": timestamp
         })
         
-        # Show thinking indicator
+        # Create placeholder for streaming
         with st.spinner("🤔 Thinking..."):
             try:
-                # Prepare messages for API
-                messages = [{"role": msg["role"], "content": msg["content"]} 
-                           for msg in st.session_state.messages]
+                # Prepare messages for API (only user messages, not full history)
+                api_messages = [{"role": "user", "content": user_input}]
                 
-                # Call Mastra API
+                # Call Mastra API with streaming
                 response = requests.post(
-                    f"{MASTRA_API_URL}/agents/{AGENT_NAME}/generate",
+                    f"{MASTRA_API_URL}/agents/{AGENT_NAME}/stream",
                     json={
-                        "messages": messages,
+                        "messages": api_messages,
                         "threadId": st.session_state.thread_id
                     },
-                    timeout=60
+                    stream=True,
+                    timeout=120
                 )
                 
                 if response.status_code == 200:
-                    data = response.json()
-                    assistant_message = data.get("text", "I apologize, but I couldn't generate a response.")
+                    # Create container for streaming response
+                    response_placeholder = st.empty()
+                    full_response = ""
+                    
+                    # Stream the response
+                    for line in response.iter_lines():
+                        if line:
+                            line_text = line.decode('utf-8')
+                            # Parse SSE format
+                            if line_text.startswith('data: '):
+                                try:
+                                    data = json.loads(line_text[6:])
+                                    if 'text' in data:
+                                        full_response = data['text']
+                                        response_placeholder.markdown(full_response)
+                                except json.JSONDecodeError:
+                                    continue
+                    
+                    # If streaming didn't work, try regular generate
+                    if not full_response:
+                        response = requests.post(
+                            f"{MASTRA_API_URL}/agents/{AGENT_NAME}/generate",
+                            json={
+                                "messages": api_messages,
+                                "threadId": st.session_state.thread_id
+                            },
+                            timeout=60
+                        )
+                        if response.status_code == 200:
+                            data = response.json()
+                            full_response = data.get("text", "I apologize, but I couldn't generate a response.")
+                        else:
+                            full_response = "I'm having trouble responding. The API returned an error."
                     
                     # Add assistant message
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     st.session_state.messages.append({
                         "role": "assistant",
-                        "content": assistant_message,
+                        "content": full_response,
                         "timestamp": timestamp
                     })
+                    response_placeholder.empty()
+                    
                 else:
-                    error_msg = f"API Error: {response.status_code} - {response.text}"
+                    error_msg = f"API Error: {response.status_code}"
                     st.error(error_msg)
                     st.session_state.messages.append({
                         "role": "assistant",
@@ -191,7 +250,7 @@ if user_input or (hasattr(st.session_state, 'user_input') and st.session_state.u
                 st.error("❌ Cannot connect to Mastra server. Make sure it's running: `npm run dev`")
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": "⚠️ Connection failed. Please start the Mastra server:\n\n```\ncd /home/maqbool/City-Information-Assistant\nnpm run dev\n```",
+                    "content": "⚠️ Connection failed. Please start the Mastra server with: npm run dev",
                     "timestamp": datetime.now().strftime("%H:%M:%S")
                 })
             
