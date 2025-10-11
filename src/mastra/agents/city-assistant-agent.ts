@@ -88,7 +88,7 @@ You: "I'll check the current weather in Tokyo for you..."
 Your goal is to make trip planning and city exploration as easy and informative as possible!
   `.trim(),
   model: openai('gpt-4o', {
-    structuredOutputs: false,
+    apiKey: process.env.OPENAI_API_KEY,
   }),
   tools: {
     weatherTool,
