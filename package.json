@@ -8,7 +8,10 @@
     "build": "mastra build",
     "start": "mastra start",
     "test:quick": "npx tsx test-agent.ts",
-    "streamlit": "./run-streamlit.sh"
+    "streamlit": "./run-streamlit.sh",
+    "workflow": "npx tsx run-workflow.mjs",
+    "workflow:test": "npx tsx test-city-planner-workflow.mjs",
+    "workflow:test-enhanced": "npx tsx test-enhanced-workflow.mjs"
   },
   "keywords": [],
   "author": "",

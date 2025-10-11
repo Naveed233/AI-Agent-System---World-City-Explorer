@@ -2,6 +2,8 @@ import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { weatherWorkflow } from './workflows/weather-workflow';
+import { cityPlannerWorkflow } from './workflows/city-planner-workflow';
+import { enhancedCityPlannerWorkflow } from './workflows/enhanced-city-planner-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { cityAssistantAgent } from './agents/city-assistant-agent';
 import { weatherTool } from './tools/weather-tool';
@@ -11,6 +13,13 @@ import { planMyCityVisitTool } from './tools/plan-city-visit-tool';
 import { tripRecommendationTool } from './tools/trip-recommendation-tool';
 import { webSearchTool } from './tools/web-search-tool';
 import { itineraryPlannerTool } from './tools/itinerary-planner-tool';
+import { flightSearchTool } from './tools/flight-search-tool';
+import { hotelBookingTool } from './tools/hotel-booking-tool';
+import { currencyConversionTool } from './tools/currency-conversion-tool';
+import { visaRequirementsTool } from './tools/visa-requirements-tool';
+import { travelInsuranceTool } from './tools/travel-insurance-tool';
+import { seasonOptimizerTool } from './tools/season-optimizer-tool';
+import { groupTravelTool } from './tools/group-travel-tool';
 
 /**
  * City Information Assistant - Mastra Core Configuration
@@ -25,6 +34,8 @@ import { itineraryPlannerTool } from './tools/itinerary-planner-tool';
 export const mastra = new Mastra({
   workflows: { 
     weatherWorkflow,
+    cityPlannerWorkflow,
+    enhancedCityPlannerWorkflow,
   },
   agents: { 
     weatherAgent,
@@ -38,6 +49,13 @@ export const mastra = new Mastra({
     tripRecommendationTool,
     webSearchTool,
     itineraryPlannerTool,
+    flightSearchTool,
+    hotelBookingTool,
+    currencyConversionTool,
+    visaRequirementsTool,
+    travelInsuranceTool,
+    seasonOptimizerTool,
+    groupTravelTool,
   },
   storage: new LibSQLStore({
     // Persistent storage for production use
