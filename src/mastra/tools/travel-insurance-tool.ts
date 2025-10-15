@@ -49,10 +49,13 @@ export const travelInsuranceTool = createTool({
       runtimeContext: runtimeContext || ({} as any),
     });
 
-    // Create comprehensive summary
+    // Create comprehensive summary with web results
+    const webResults = searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n');
+    
     const summary = `🛡️ Travel Insurance Options for ${destination} (${duration} days, ${travelers} ${travelers === 1 ? 'traveler' : 'travelers'}):
 
-${searchResult.summary}
+**Current Insurance Options:**
+${webResults}
 
 **Important Considerations:**
 ${activities.length > 0 ? `🏂 Adventure Activities: ${activities.join(', ')} - Ensure your policy covers these` : '✅ Standard travel activities typically covered'}
@@ -79,9 +82,9 @@ ${age > 65 ? '👴 Senior Travel: Age may affect pricing and coverage options' :
     return {
       destination,
       duration,
-      searchResults: searchResult.results,
+      searchResults: webResults,
       summary,
-      sources: searchResult.sources || [],
+      sources: searchResult.results.map((r: any) => r.url),
     };
   },
 });

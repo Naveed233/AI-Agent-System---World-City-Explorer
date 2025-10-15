@@ -143,7 +143,7 @@ export const hotelBookingTool = createTool({
         };
       });
 
-      const averagePrice = Math.round(hotels.reduce((sum, h) => sum + h.pricePerNight, 0) / hotels.length);
+      const averagePrice = Math.round(hotels.reduce((sum: number, h: any) => sum + h.pricePerNight, 0) / hotels.length);
 
       const recommendations = [
         `💰 Average price: $${averagePrice}/night`,

@@ -155,8 +155,8 @@ export const flightSearchTool = createTool({
         };
       });
 
-      const cheapestPrice = Math.min(...flights.map(f => f.price));
-      const fastestDuration = flights.reduce((min, f) => {
+      const cheapestPrice = Math.min(...flights.map((f: any) => f.price));
+      const fastestDuration = flights.reduce((min: string, f: any) => {
         const current = f.duration;
         return current < min ? current : min;
       }, flights[0].duration);
@@ -164,7 +164,7 @@ export const flightSearchTool = createTool({
       const recommendations = [
         `💰 Cheapest: ${cheapestPrice} ${flights[0].currency} ${returnDate ? '(round trip)' : '(one-way)'}`,
         `⚡ Fastest: ${fastestDuration}`,
-        `✈️ ${flights.filter(f => f.stops === 0).length} direct flight(s) available`,
+        `✈️ ${flights.filter((f: any) => f.stops === 0).length} direct flight(s) available`,
         `📅 Book 2-3 months ahead for best prices`,
         `🔄 Compare with Google Flights for more options`,
       ];
@@ -211,7 +211,7 @@ export const flightSearchTool = createTool({
         fastestDuration: 'See search results',
         recommendations: [
           `🔍 Live flight search results:`,
-          searchResult.summary,
+          searchResult.results.map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n'),
           ``,
           `📱 Book on: Google Flights, Skyscanner, Kayak, or directly with airlines`,
           `⚠️ Amadeus API temporarily unavailable - showing web results`,

@@ -35,16 +35,18 @@ export const visaRequirementsTool = createTool({
     });
 
     // Extract key information from search results
-    const summary = `📍 Visa information for ${passportCountry} passport holders traveling to ${destinationCountry}:\n\n${searchResult.summary}\n\n⚠️ **Important**: Visa requirements can change. Always verify with:\n- Official ${destinationCountry} embassy/consulate website\n- Your country's foreign affairs department\n- IATA Travel Centre (iatatravelcentre.com)`;
+    const webResults = searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n');
+    
+    const summary = `📍 Visa information for ${passportCountry} passport holders traveling to ${destinationCountry}:\n\n${webResults}\n\n⚠️ **Important**: Visa requirements can change. Always verify with:\n- Official ${destinationCountry} embassy/consulate website\n- Your country's foreign affairs department\n- IATA Travel Centre (iatatravelcentre.com)`;
 
     console.log(`✅ [Visa Requirements] Found current information for ${destinationCountry}`);
 
     return {
       passportCountry,
       destinationCountry,
-      searchResults: searchResult.results,
+      searchResults: webResults,
       summary,
-      sources: searchResult.sources || [],
+      sources: searchResult.results.map((r: any) => r.url),
     };
   },
 });

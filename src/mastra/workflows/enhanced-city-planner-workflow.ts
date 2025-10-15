@@ -103,10 +103,10 @@ const checkTravelRequirements = createStep({
     console.log(`📋 [Travel Requirements] Checking requirements for ${destinations.length} destination(s)...`);
 
     // Check visa requirements for each destination
-    const visaInfo = passportCountry
+    const visaInfo = passportCountry && visaRequirementsTool.execute
       ? await Promise.all(
           destinations.map((dest: any) =>
-            visaRequirementsTool.execute({
+            visaRequirementsTool.execute!({
               context: {
                 passportCountry,
                 destinationCountry: dest.city,
@@ -120,7 +120,7 @@ const checkTravelRequirements = createStep({
 
     // Get travel insurance recommendations
     let insuranceRecommendations;
-    if (destinations.length > 0) {
+    if (destinations.length > 0 && travelInsuranceTool.execute) {
       insuranceRecommendations = await travelInsuranceTool.execute({
         context: {
           destination: destinations[0].city,

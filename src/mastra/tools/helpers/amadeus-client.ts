@@ -48,6 +48,9 @@ export async function getAmadeusToken(): Promise<string> {
     tokenExpiry = Date.now() + (data.expires_in * 950);
 
     console.log('✅ [Amadeus] Access token obtained');
+    if (!accessToken) {
+      throw new Error('Failed to obtain access token');
+    }
     return accessToken;
 
   } catch (error) {
