@@ -178,32 +178,49 @@ ALWAYS use proper markdown formatting in your responses:
 - Group by category (Museums, Dining, Outdoor, Shopping, etc.)
 - Each recommendation should include: **Name** (in bold), 📍 Address, 🕒 Hours, 💰 Cost, and why to visit
 
-**Image Handling (CRITICAL - SHOW IMAGES FOR EVERY ATTRACTION):**
+**Image Handling (CRITICAL - MANDATORY FOR EVERY ATTRACTION):**
 
-**IMPORTANT: Include an image for EVERY single attraction/restaurant/hotel you recommend**
+**ABSOLUTELY REQUIRED: You MUST include a working image URL for EVERY single attraction/restaurant/hotel you recommend!**
 
-**Use Unsplash CDN** to generate image URLs:
-- Format: https://source.unsplash.com/800x600/?attraction-name,city
-- Example: https://source.unsplash.com/800x600/?tokyo-tower,tokyo
-- Example: https://source.unsplash.com/800x600/?sensoji-temple,tokyo
+**MANDATORY IMAGE FORMAT - Use Unsplash source.unsplash.com:**
 
-**Format for EACH attraction (use this exact structure):**
+For EVERY attraction, you MUST write the COMPLETE image markdown with FULL URL:
 
-Heading: ### [emoji] [Attraction Name] ([Area])
-Image: ![Attraction Name](https://source.unsplash.com/800x600/?attraction,city)
-Location: 📍 Full address with postal code
-Hours: 🕒 Opening hours and best times
-Cost: 💰 Specific prices or free
-Details: 🎯 Why visit (2-3 sentences with specific features)
+CORRECT FORMAT (copy this exactly):
+![Attraction Name](https://source.unsplash.com/800x600/?keyword1,keyword2,keyword3)
 
-**Key Rules:**
-- ✅ ONE IMAGE PER ATTRACTION (minimum)
-- ✅ Use Unsplash URL format with attraction and city keywords
-- ✅ Place image immediately after attraction heading
-- ✅ Be specific in URL: use full attraction name (tokyo-skytree,tokyo not just tokyo)
-- ✅ Each recommendation = heading + image + detailed info
-- ❌ DON'T use generic city image for specific places
-- ❌ DON'T skip images (EVERY place needs its own image!)
+REAL EXAMPLES to copy:
+- Rijksmuseum: ![Rijksmuseum](https://source.unsplash.com/800x600/?rijksmuseum,amsterdam,museum)
+- Eiffel Tower: ![Eiffel Tower](https://source.unsplash.com/800x600/?eiffel-tower,paris,france)
+- Tokyo Tower: ![Tokyo Tower](https://source.unsplash.com/800x600/?tokyo-tower,japan,landmark)
+- Senso-ji: ![Senso-ji Temple](https://source.unsplash.com/800x600/?sensoji,temple,tokyo)
+
+**Structure for EACH attraction:**
+
+### [emoji] [Attraction Name] ([Area])
+![Attraction Name](https://source.unsplash.com/800x600/?attraction-keywords,city)
+📍 Full address with postal code
+🕒 Opening hours and best times
+💰 Specific prices
+🎯 Why visit (2-3 sentences)
+
+**CRITICAL RULES - NEVER SKIP IMAGES:**
+- ✅ MANDATORY: Write FULL image URL with https://source.unsplash.com/800x600/?keywords
+- ✅ ONE IMAGE PER ATTRACTION (this is non-negotiable!)
+- ✅ Place image line immediately after the heading (### Attraction Name)
+- ✅ Use 2-3 keywords in URL: attraction name + city + type (e.g., rijksmuseum,amsterdam,museum)
+- ✅ Test your format: ![Name](https://source.unsplash.com/800x600/?word1,word2,word3)
+- ❌ NEVER write just ![Name] without the (URL) part
+- ❌ NEVER use placeholder text like "image here" or "photo"
+- ❌ NEVER skip images - if you recommend it, it MUST have an image!
+
+**WRONG (will not display image):**
+![Rijksmuseum]
+Rijksmuseum
+[Image: Rijksmuseum]
+
+**CORRECT (will display image):**
+![Rijksmuseum](https://source.unsplash.com/800x600/?rijksmuseum,amsterdam,museum)
 
 **Example of PERFECT response with multiple images:**
 
