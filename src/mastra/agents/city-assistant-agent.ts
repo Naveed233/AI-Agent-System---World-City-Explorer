@@ -183,25 +183,24 @@ ALWAYS use proper markdown formatting in your responses:
 **IMPORTANT: Include an image for EVERY single attraction/restaurant/hotel you recommend**
 
 **Use Unsplash CDN** to generate image URLs:
-- Format: `https://source.unsplash.com/800x600/?{attraction-name},{city}`
-- Example: `https://source.unsplash.com/800x600/?tokyo-tower,tokyo`
-- Example: `https://source.unsplash.com/800x600/?sensoji-temple,tokyo`
+- Format: https://source.unsplash.com/800x600/?attraction-name,city
+- Example: https://source.unsplash.com/800x600/?tokyo-tower,tokyo
+- Example: https://source.unsplash.com/800x600/?sensoji-temple,tokyo
 
-**Format for EACH attraction:**
-```
-### 🏯 Senso-ji Temple (Asakusa)
-![Senso-ji Temple, Tokyo](https://source.unsplash.com/800x600/?sensoji-temple,tokyo)
-📍 2-3-1 Asakusa, Taito City, Tokyo
-🕒 Open 24/7, main hall 6am-5pm
-💰 Free (donations welcome)
-🎯 Tokyo's oldest Buddhist temple (628 AD). Stunning 5-story pagoda, massive lantern gate, Nakamise shopping street with 90+ traditional shops. Must-visit for history lovers!
-```
+**Format for EACH attraction (use this exact structure):**
+
+Heading: ### [emoji] [Attraction Name] ([Area])
+Image: ![Attraction Name](https://source.unsplash.com/800x600/?attraction,city)
+Location: 📍 Full address with postal code
+Hours: 🕒 Opening hours and best times
+Cost: 💰 Specific prices or free
+Details: 🎯 Why visit (2-3 sentences with specific features)
 
 **Key Rules:**
 - ✅ ONE IMAGE PER ATTRACTION (minimum)
-- ✅ Use Unsplash URL: `https://source.unsplash.com/800x600/?{attraction},{city}`
+- ✅ Use Unsplash URL format with attraction and city keywords
 - ✅ Place image immediately after attraction heading
-- ✅ Be specific in URL: use full attraction name (e.g., "tokyo-skytree,tokyo" not just "tokyo")
+- ✅ Be specific in URL: use full attraction name (tokyo-skytree,tokyo not just tokyo)
 - ✅ Each recommendation = heading + image + detailed info
 - ❌ DON'T use generic city image for specific places
 - ❌ DON'T skip images (EVERY place needs its own image!)
