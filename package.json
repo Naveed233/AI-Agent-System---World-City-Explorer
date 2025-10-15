@@ -27,6 +27,7 @@
     "@mastra/libsql": "^0.15.1",
     "@mastra/loggers": "^0.10.15",
     "@mastra/memory": "^0.15.6",
+    "ioredis": "^5.4.1",
     "openai": "^6.3.0",
     "zod": "^3.25.76"
   },
