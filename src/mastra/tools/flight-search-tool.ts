@@ -2,6 +2,8 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { amadeusRequest } from './helpers/amadeus-client';
 import { webSearchTool } from './web-search-tool';
+import { getIATACode, isAmbiguousCity, getAmbiguousCitySuggestions } from './helpers/city-iata-mapper';
+import { checkToolRateLimit } from '../../middleware/rate-limiter';
 
 /**
  * Flight Search Tool
@@ -49,7 +51,28 @@ export const flightSearchTool = createTool({
       class: flightClass = 'economy' 
     } = context;
 
-    console.log(`✈️ [Flight Search] Searching flights: ${origin} → ${destination} (Live API)`);
+    // Rate limiting check (20 flight searches per hour per user)
+    const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
+    const rateLimitResult = checkToolRateLimit(identifier, 'flight');
+    
+    if (!rateLimitResult.allowed) {
+      console.warn(`🚫 [Flight Search] Rate limit exceeded for ${identifier}`);
+      return {
+        origin,
+        destination,
+        flights: [],
+        cheapestPrice: 0,
+        fastestDuration: 'N/A',
+        recommendations: [
+          `⚠️ ${rateLimitResult.message}`,
+          `💡 You can search again after the limit resets`,
+          `📊 Remaining searches: ${rateLimitResult.remaining}/20 per hour`,
+        ],
+        source: 'Rate Limited',
+      };
+    }
+
+    console.log(`✈️ [Flight Search] Searching flights: ${origin} → ${destination} (Live API) [${rateLimitResult.remaining} remaining]`);
 
     // Default departure date to 7 days from now if not provided
     const defaultDate = new Date();
@@ -67,9 +90,17 @@ export const flightSearchTool = createTool({
     const travelClass = classMap[flightClass];
 
     try {
+      // Check if cities are ambiguous
+      if (isAmbiguousCity(origin)) {
+        const suggestions = getAmbiguousCitySuggestions(origin);
+        if (suggestions.length > 0) {
+          console.log(`⚠️ [Flight Search] Ambiguous city: ${origin}. Suggestions: ${suggestions.join(', ')}`);
+        }
+      }
+      
       // Get IATA codes for cities (if they're not already codes)
-      const originCode = await getIATACode(origin);
-      const destCode = await getIATACode(destination);
+      const originCode = getIATACode(origin);
+      const destCode = getIATACode(destination);
 
       console.log(`🔍 [Flight Search] Using airport codes: ${originCode} → ${destCode}`);
 
@@ -190,90 +221,6 @@ export const flightSearchTool = createTool({
     }
   },
 });
-
-/**
- * Get IATA code for a city name
- * Uses simple mapping for major cities
- */
-async function getIATACode(cityOrCode: string): Promise<string> {
-  const city = cityOrCode.toUpperCase().trim();
-
-  // If already a 3-letter code, return it
-  if (/^[A-Z]{3}$/.test(city)) {
-    return city;
-  }
-
-  // Major city to IATA code mapping
-  const cityCodeMap: Record<string, string> = {
-    // North America
-    'NEW YORK': 'JFK',
-    'NYC': 'JFK',
-    'LOS ANGELES': 'LAX',
-    'LA': 'LAX',
-    'CHICAGO': 'ORD',
-    'MIAMI': 'MIA',
-    'SAN FRANCISCO': 'SFO',
-    'BOSTON': 'BOS',
-    'WASHINGTON': 'DCA',
-    'SEATTLE': 'SEA',
-    'LAS VEGAS': 'LAS',
-    'TORONTO': 'YYZ',
-    'VANCOUVER': 'YVR',
-    'MEXICO CITY': 'MEX',
-    
-    // Europe
-    'LONDON': 'LHR',
-    'PARIS': 'CDG',
-    'ROME': 'FCO',
-    'MADRID': 'MAD',
-    'BARCELONA': 'BCN',
-    'AMSTERDAM': 'AMS',
-    'BERLIN': 'BER',
-    'MUNICH': 'MUC',
-    'ZURICH': 'ZRH',
-    'VIENNA': 'VIE',
-    'ATHENS': 'ATH',
-    'DUBLIN': 'DUB',
-    'LISBON': 'LIS',
-    'MOSCOW': 'SVO',
-    'ISTANBUL': 'IST',
-    
-    // Asia
-    'TOKYO': 'NRT',
-    'BEIJING': 'PEK',
-    'SHANGHAI': 'PVG',
-    'HONG KONG': 'HKG',
-    'SINGAPORE': 'SIN',
-    'SEOUL': 'ICN',
-    'BANGKOK': 'BKK',
-    'DUBAI': 'DXB',
-    'DELHI': 'DEL',
-    'MUMBAI': 'BOM',
-    'MANILA': 'MNL',
-    'JAKARTA': 'CGK',
-    'KUALA LUMPUR': 'KUL',
-    
-    // Oceania
-    'SYDNEY': 'SYD',
-    'MELBOURNE': 'MEL',
-    'AUCKLAND': 'AKL',
-    
-    // South America
-    'SAO PAULO': 'GRU',
-    'BUENOS AIRES': 'EZE',
-    'RIO DE JANEIRO': 'GIG',
-    'LIMA': 'LIM',
-    'BOGOTA': 'BOG',
-    
-    // Africa
-    'CAIRO': 'CAI',
-    'JOHANNESBURG': 'JNB',
-    'CAPE TOWN': 'CPT',
-    'NAIROBI': 'NBO',
-  };
-
-  return cityCodeMap[city] || city;
-}
 
 /**
  * Get airline full name from carrier code

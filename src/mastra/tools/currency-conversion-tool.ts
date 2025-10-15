@@ -1,5 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { checkToolRateLimit } from '../../middleware/rate-limiter';
+import { getOrSet } from '../../middleware/cache-manager';
 
 /**
  * Currency Conversion Tool
@@ -25,21 +27,49 @@ export const currencyConversionTool = createTool({
   execute: async ({ context }) => {
     const { amount, from, to } = context;
 
-    console.log(`💱 [Currency Conversion] Converting ${amount} ${from} to ${to} (Live API)`);
+    // Rate limiting check (50 currency conversions per hour per user)
+    const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
+    const rateLimitResult = checkToolRateLimit(identifier, 'currency');
+    
+    if (!rateLimitResult.allowed) {
+      console.warn(`🚫 [Currency Conversion] Rate limit exceeded for ${identifier}`);
+      return {
+        amount,
+        from: from.toUpperCase(),
+        to: to.toUpperCase(),
+        converted: 0,
+        rate: 0,
+        lastUpdated: new Date().toLocaleDateString(),
+        tips: [
+          `⚠️ ${rateLimitResult.message}`,
+          `💡 You can convert again after the limit resets`,
+          `📊 Remaining conversions: ${rateLimitResult.remaining}/50 per hour`,
+        ],
+      };
+    }
+
+    console.log(`💱 [Currency Conversion] Converting ${amount} ${from} to ${to} (Live API) [${rateLimitResult.remaining} remaining]`);
 
     const API_KEY = process.env.EXCHANGERATE_API_KEY || '80352c8e56592c730903bca6';
+    const fromUpper = from.toUpperCase();
     
     try {
-      // Fetch live exchange rates
-      const response = await fetch(
-        `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${from.toUpperCase()}`
+      // Fetch live exchange rates with caching (cached for 1 hour since rates don't change often)
+      const data = await getOrSet(
+        `exchange:${fromUpper}`,
+        async () => {
+          const response = await fetch(
+            `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${fromUpper}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`ExchangeRate API error: ${response.status}`);
+          }
+
+          return await response.json();
+        },
+        3600 // Cache for 1 hour
       );
-
-      if (!response.ok) {
-        throw new Error(`ExchangeRate API error: ${response.status}`);
-      }
-
-      const data = await response.json();
 
       if (data.result !== 'success') {
         throw new Error(`API returned error: ${data['error-type']}`);

@@ -1,7 +1,10 @@
 /**
  * Amadeus API Client Helper
  * Handles authentication and provides methods for flight & hotel searches
+ * Includes response caching to reduce API costs
  */
+
+import { getOrSet, generateCacheKey } from '../../../middleware/cache-manager';
 
 const AMADEUS_API_KEY = process.env.AMADEUS_API_KEY || 'vp3pPKkVcsZA4TAdQg3uIcO6p4OMhsEe';
 const AMADEUS_API_SECRET = process.env.AMADEUS_API_SECRET || 'So8y0UcyZ00xPZYY';
@@ -54,38 +57,57 @@ export async function getAmadeusToken(): Promise<string> {
 }
 
 /**
- * Make authenticated request to Amadeus API
+ * Make authenticated request to Amadeus API with caching
+ * Cache TTL: Flight/Hotel offers = 30 minutes, Hotel list = 24 hours
  */
-export async function amadeusRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
-  const token = await getAmadeusToken();
-
-  const queryString = new URLSearchParams(
-    Object.entries(params).reduce((acc, [key, value]) => {
-      if (value !== undefined && value !== null) {
-        acc[key] = String(value);
-      }
-      return acc;
-    }, {} as Record<string, string>)
-  ).toString();
-
-  const url = `${AMADEUS_BASE_URL}${endpoint}?${queryString}`;
-
-  console.log(`📡 [Amadeus] Request: ${endpoint}`);
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`❌ [Amadeus] API error (${response.status}):`, errorText);
-    throw new Error(`Amadeus API error: ${response.status}`);
+export async function amadeusRequest(endpoint: string, params: Record<string, any> = {}, useCache: boolean = true): Promise<any> {
+  // Generate cache key
+  const cacheKey = generateCacheKey(`amadeus${endpoint}`, params);
+  
+  // Determine cache TTL based on endpoint type
+  let cacheTTL = 1800; // Default: 30 minutes
+  if (endpoint.includes('/hotels/by-city')) {
+    cacheTTL = 86400; // Hotel list: 24 hours (doesn't change often)
+  } else if (endpoint.includes('/flight-offers') || endpoint.includes('/hotel-offers')) {
+    cacheTTL = 1800; // Offers: 30 minutes (prices change)
   }
 
-  const data = await response.json();
-  return data;
+  // Use cache or fetch fresh
+  return await getOrSet(
+    cacheKey,
+    async () => {
+      const token = await getAmadeusToken();
+
+      const queryString = new URLSearchParams(
+        Object.entries(params).reduce((acc, [key, value]) => {
+          if (value !== undefined && value !== null) {
+            acc[key] = String(value);
+          }
+          return acc;
+        }, {} as Record<string, string>)
+      ).toString();
+
+      const url = `${AMADEUS_BASE_URL}${endpoint}?${queryString}`;
+
+      console.log(`📡 [Amadeus] API Request: ${endpoint}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ [Amadeus] API error (${response.status}):`, errorText);
+        throw new Error(`Amadeus API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    },
+    useCache ? cacheTTL : 0 // Skip cache if useCache=false
+  );
 }
 

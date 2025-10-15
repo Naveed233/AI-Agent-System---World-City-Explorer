@@ -2,6 +2,8 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { amadeusRequest } from './helpers/amadeus-client';
 import { webSearchTool } from './web-search-tool';
+import { getIATACode } from './helpers/city-iata-mapper';
+import { checkToolRateLimit } from '../../middleware/rate-limiter';
 
 /**
  * Hotel Booking Tool
@@ -51,7 +53,26 @@ export const hotelBookingTool = createTool({
       amenities = []
     } = context;
 
-    console.log(`🏨 [Hotel Booking] Searching hotels in ${city} for ${guests} guest(s) (Live API)`);
+    // Rate limiting check (20 hotel searches per hour per user)
+    const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
+    const rateLimitResult = checkToolRateLimit(identifier, 'hotel');
+    
+    if (!rateLimitResult.allowed) {
+      console.warn(`🚫 [Hotel Booking] Rate limit exceeded for ${identifier}`);
+      return {
+        city,
+        hotels: [],
+        averagePrice: 0,
+        recommendations: [
+          `⚠️ ${rateLimitResult.message}`,
+          `💡 You can search again after the limit resets`,
+          `📊 Remaining searches: ${rateLimitResult.remaining}/20 per hour`,
+        ],
+        source: 'Rate Limited',
+      };
+    }
+
+    console.log(`🏨 [Hotel Booking] Searching hotels in ${city} for ${guests} guest(s) (Live API) [${rateLimitResult.remaining} remaining]`);
 
     // Default dates
     const defaultCheckIn = new Date();
@@ -64,7 +85,7 @@ export const hotelBookingTool = createTool({
 
     try {
       // Step 1: Get city IATA code
-      const cityCode = await getCityCode(city);
+      const cityCode = getIATACode(city);
       console.log(`🔍 [Hotel Booking] Using city code: ${cityCode}`);
 
       // Step 2: Search hotels by city
@@ -184,71 +205,3 @@ export const hotelBookingTool = createTool({
     }
   },
 });
-
-/**
- * Get IATA city code for hotel search
- * Uses simple mapping for major cities
- */
-async function getCityCode(cityName: string): Promise<string> {
-  const city = cityName.toUpperCase().trim();
-
-  // Major city to IATA code mapping (same as flight search)
-  const cityCodeMap: Record<string, string> = {
-    'NEW YORK': 'NYC',
-    'NYC': 'NYC',
-    'LOS ANGELES': 'LAX',
-    'LA': 'LAX',
-    'CHICAGO': 'CHI',
-    'MIAMI': 'MIA',
-    'SAN FRANCISCO': 'SFO',
-    'BOSTON': 'BOS',
-    'WASHINGTON': 'WAS',
-    'SEATTLE': 'SEA',
-    'LAS VEGAS': 'LAS',
-    'TORONTO': 'YTO',
-    'VANCOUVER': 'YVR',
-    'MEXICO CITY': 'MEX',
-    'LONDON': 'LON',
-    'PARIS': 'PAR',
-    'ROME': 'ROM',
-    'MADRID': 'MAD',
-    'BARCELONA': 'BCN',
-    'AMSTERDAM': 'AMS',
-    'BERLIN': 'BER',
-    'MUNICH': 'MUC',
-    'ZURICH': 'ZRH',
-    'VIENNA': 'VIE',
-    'ATHENS': 'ATH',
-    'DUBLIN': 'DUB',
-    'LISBON': 'LIS',
-    'MOSCOW': 'MOW',
-    'ISTANBUL': 'IST',
-    'TOKYO': 'TYO',
-    'BEIJING': 'BJS',
-    'SHANGHAI': 'SHA',
-    'HONG KONG': 'HKG',
-    'SINGAPORE': 'SIN',
-    'SEOUL': 'SEL',
-    'BANGKOK': 'BKK',
-    'DUBAI': 'DXB',
-    'DELHI': 'DEL',
-    'MUMBAI': 'BOM',
-    'MANILA': 'MNL',
-    'JAKARTA': 'JKT',
-    'KUALA LUMPUR': 'KUL',
-    'SYDNEY': 'SYD',
-    'MELBOURNE': 'MEL',
-    'AUCKLAND': 'AKL',
-    'SAO PAULO': 'SAO',
-    'BUENOS AIRES': 'BUE',
-    'RIO DE JANEIRO': 'RIO',
-    'LIMA': 'LIM',
-    'BOGOTA': 'BOG',
-    'CAIRO': 'CAI',
-    'JOHANNESBURG': 'JNB',
-    'CAPE TOWN': 'CPT',
-    'NAIROBI': 'NBO',
-  };
-
-  return cityCodeMap[city] || city.substring(0, 3);
-}
