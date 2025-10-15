@@ -371,26 +371,226 @@ export const CITY_TO_IATA: Record<string, string> = {
   
   // ========== AFRICA ==========
   
+  // North Africa - Egypt
   'CAIRO': 'CAI',
   'ALEXANDRIA': 'ALY',
+  'LUXOR': 'LXR',
+  'ASWAN': 'ASW',
+  'HURGHADA': 'HRG',
+  'SHARM EL SHEIKH': 'SSH',
+  'GIZA': 'CAI',
+  
+  // North Africa - Morocco
+  'CASABLANCA': 'CMN',
+  'MARRAKECH': 'RAK',
+  'MARRAKESH': 'RAK',
+  'RABAT': 'RBA',
+  'FEZ': 'FEZ',
+  'TANGIER': 'TNG',
+  'AGADIR': 'AGA',
+  'ESSAOUIRA': 'ESU',
+  
+  // North Africa - Tunisia
+  'TUNIS': 'TUN',
+  'SFAX': 'SFA',
+  'DJERBA': 'DJE',
+  'MONASTIR': 'MIR',
+  
+  // North Africa - Algeria
+  'ALGIERS': 'ALG',
+  'ORAN': 'ORN',
+  'CONSTANTINE': 'CZL',
+  'ANNABA': 'AAE',
+  
+  // North Africa - Libya
+  'TRIPOLI': 'TIP',
+  'BENGHAZI': 'BEN',
+  'MISRATA': 'MRA',
+  
+  // West Africa - Nigeria
+  'LAGOS': 'LOS',
+  'ABUJA': 'ABV',
+  'KANO': 'KAN',
+  'PORT HARCOURT': 'PHC',
+  'ENUGU': 'ENU',
+  'IBADAN': 'IBA',
+  'CALABAR': 'CBQ',
+  
+  // West Africa - Ghana
+  'ACCRA': 'ACC',
+  'KUMASI': 'KMS',
+  'TAMALE': 'TML',
+  
+  // West Africa - Senegal
+  'DAKAR': 'DSS',
+  'SAINT LOUIS': 'XLS',
+  
+  // West Africa - Ivory Coast (Côte d'Ivoire)
+  'ABIDJAN': 'ABJ',
+  'YAMOUSSOUKRO': 'ASK',
+  
+  // West Africa - Mali
+  'BAMAKO': 'BKO',
+  'TIMBUKTU': 'TOM',
+  
+  // West Africa - Guinea
+  'CONAKRY': 'CKY',
+  
+  // West Africa - Burkina Faso
+  'OUAGADOUGOU': 'OUA',
+  
+  // West Africa - Benin
+  'COTONOU': 'COO',
+  
+  // West Africa - Togo
+  'LOME': 'LFW',
+  
+  // West Africa - Niger
+  'NIAMEY': 'NIM',
+  
+  // West Africa - Liberia
+  'MONROVIA': 'MLW',
+  
+  // West Africa - Sierra Leone
+  'FREETOWN': 'FNA',
+  
+  // West Africa - Gambia
+  'BANJUL': 'BJL',
+  
+  // West Africa - Cape Verde
+  'PRAIA': 'RAI',
+  
+  // East Africa - Kenya
+  'NAIROBI': 'NBO',
+  'MOMBASA': 'MBA',
+  'KISUMU': 'KIS',
+  'ELDORET': 'EDL',
+  'MALINDI': 'MYD',
+  
+  // East Africa - Tanzania
+  'DAR ES SALAAM': 'DAR',
+  'ZANZIBAR': 'ZNZ',
+  'ARUSHA': 'ARK',
+  'MWANZA': 'MWZ',
+  'KILIMANJARO': 'JRO',
+  
+  // East Africa - Ethiopia
+  'ADDIS ABABA': 'ADD',
+  'MEKELE': 'MQX',
+  'GONDAR': 'GDQ',
+  'DIRE DAWA': 'DIR',
+  
+  // East Africa - Uganda
+  'KAMPALA': 'EBB',
+  'ENTEBBE': 'EBB',
+  
+  // East Africa - Rwanda
+  'KIGALI': 'KGL',
+  
+  // East Africa - Burundi
+  'BUJUMBURA': 'BJM',
+  
+  // East Africa - Somalia
+  'MOGADISHU': 'MGQ',
+  'HARGEISA': 'HGA',
+  
+  // East Africa - Djibouti
+  'DJIBOUTI': 'JIB',
+  
+  // East Africa - Eritrea
+  'ASMARA': 'ASM',
+  
+  // Central Africa - DRC (Democratic Republic of Congo)
+  'KINSHASA': 'FIH',
+  'LUBUMBASHI': 'FBM',
+  'GOMA': 'GOM',
+  'KISANGANI': 'FKI',
+  
+  // Central Africa - Cameroon
+  'DOUALA': 'DLA',
+  'YAOUNDE': 'NSI',
+  'GAROUA': 'GOU',
+  
+  // Central Africa - Republic of Congo
+  'BRAZZAVILLE': 'BZV',
+  
+  // Central Africa - Gabon
+  'LIBREVILLE': 'LBV',
+  
+  // Central Africa - Central African Republic
+  'BANGUI': 'BGF',
+  
+  // Central Africa - Chad
+  'NDJAMENA': 'NDJ',
+  
+  // Central Africa - Equatorial Guinea
+  'MALABO': 'SSG',
+  
+  // Southern Africa - South Africa
   'JOHANNESBURG': 'JNB',
   'CAPE TOWN': 'CPT',
   'DURBAN': 'DUR',
-  'NAIROBI': 'NBO',
-  'MOMBASA': 'MBA',
-  'LAGOS': 'LOS',
-  'ABUJA': 'ABV',
-  'ACCRA': 'ACC',
-  'ADDIS ABABA': 'ADD',
-  'CASABLANCA': 'CMN',
-  'MARRAKECH': 'RAK',
-  'TUNIS': 'TUN',
-  'ALGIERS': 'ALG',
-  'DAR ES SALAAM': 'DAR',
-  'KAMPALA': 'EBB',
-  'KIGALI': 'KGL',
-  'LUSAKA': 'LUN',
+  'PRETORIA': 'PRY',
+  'PORT ELIZABETH': 'PLZ',
+  'BLOEMFONTEIN': 'BFN',
+  'EAST LONDON': 'ELS',
+  'GEORGE': 'GRJ',
+  'NELSPRUIT': 'MQP',
+  
+  // Southern Africa - Zimbabwe
   'HARARE': 'HRE',
+  'BULAWAYO': 'BUQ',
+  'VICTORIA FALLS': 'VFA',
+  
+  // Southern Africa - Zambia
+  'LUSAKA': 'LUN',
+  'LIVINGSTONE': 'LVI',
+  'NDOLA': 'NLA',
+  
+  // Southern Africa - Botswana
+  'GABORONE': 'GBE',
+  'MAUN': 'MUB',
+  'KASANE': 'BBK',
+  
+  // Southern Africa - Namibia
+  'WINDHOEK': 'WDH',
+  'WALVIS BAY': 'WVB',
+  'SWAKOPMUND': 'SWP',
+  
+  // Southern Africa - Mozambique
+  'MAPUTO': 'MPM',
+  'BEIRA': 'BEW',
+  'NAMPULA': 'APL',
+  
+  // Southern Africa - Angola
+  'LUANDA': 'LAD',
+  'BENGUELA': 'BUG',
+  'LUBANGO': 'SDD',
+  
+  // Southern Africa - Malawi
+  'LILONGWE': 'LLW',
+  'BLANTYRE': 'BLZ',
+  
+  // Southern Africa - Madagascar
+  'ANTANANARIVO': 'TNR',
+  'NOSY BE': 'NOS',
+  'TOAMASINA': 'TMM',
+  
+  // Southern Africa - Mauritius
+  'PORT LOUIS': 'MRU',
+  
+  // Southern Africa - Seychelles
+  'VICTORIA': 'SEZ',
+  'MAHE': 'SEZ',
+  
+  // Southern Africa - Réunion (French territory)
+  'SAINT DENIS': 'RUN',
+  
+  // Southern Africa - Comoros
+  'MORONI': 'HAH',
+  
+  // Indian Ocean Islands
+  'MAYOTTE': 'DZA',
 };
 
 /**
