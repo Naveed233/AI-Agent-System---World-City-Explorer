@@ -1,9 +1,11 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { getBestCityImage } from './helpers/unsplash-client';
 
 /**
  * CityFactsTool - Fetches basic facts and information about a city
  * Uses GeoDB Cities API or Wikipedia API
+ * Includes images from Wikipedia and Unsplash
  */
 export const cityFactsTool = createTool({
   id: 'city-facts-tool',
@@ -19,6 +21,13 @@ export const cityFactsTool = createTool({
     notableFor: z.array(z.string()),
     region: z.string().optional(),
     currency: z.string().optional(),
+    image: z.object({
+      url: z.string(),
+      clickableUrl: z.string(),
+      source: z.enum(['wikipedia', 'unsplash']),
+      photographer: z.string().optional(),
+      photographerUrl: z.string().optional(),
+    }).optional(),
   }),
   execute: async ({ context: { city } }) => {
     const apiKey = process.env.RAPIDAPI_KEY;
@@ -109,11 +118,22 @@ export const cityFactsTool = createTool({
 
     const cityLower = city.toLowerCase();
     
+    // Fetch city image (async, parallel with data fetching)
+    const imagePromise = getBestCityImage(city);
+    
     // Check if we have cached data
     if (cityFactsDB[cityLower]) {
+      const image = await imagePromise;
       return {
         city,
         ...cityFactsDB[cityLower],
+        image: image ? {
+          url: image.imageUrl,
+          clickableUrl: image.clickableUrl,
+          source: image.source,
+          photographer: image.photographer,
+          photographerUrl: image.photographerUrl,
+        } : undefined,
       };
     }
 
@@ -132,6 +152,9 @@ export const cityFactsTool = createTool({
         // Extract basic info from Wikipedia
         const description = data.extract || data.description || `${city} is a notable city.`;
         
+        // Wait for image
+        const image = await imagePromise;
+        
         return {
           city: data.title || city,
           country: 'Information available on Wikipedia',
@@ -139,6 +162,13 @@ export const cityFactsTool = createTool({
           notableFor: ['Historic significance', 'Cultural importance'],
           region: 'See Wikipedia for details',
           currency: 'Local currency',
+          image: image ? {
+            url: image.imageUrl,
+            clickableUrl: image.clickableUrl,
+            source: image.source,
+            photographer: image.photographer,
+            photographerUrl: image.photographerUrl,
+          } : undefined,
         };
       }
     } catch (error) {
@@ -146,6 +176,7 @@ export const cityFactsTool = createTool({
     }
 
     // If no API key or API fails, return generic information
+    const image = await imagePromise;
     return {
       city,
       country: 'Unknown',
@@ -154,6 +185,13 @@ export const cityFactsTool = createTool({
       notableFor: ['Local culture', 'Historic sites', 'Local cuisine'],
       region: 'Unknown',
       currency: 'Local currency',
+      image: image ? {
+        url: image.imageUrl,
+        clickableUrl: image.clickableUrl,
+        source: image.source,
+        photographer: image.photographer,
+        photographerUrl: image.photographerUrl,
+      } : undefined,
     };
   },
 });
