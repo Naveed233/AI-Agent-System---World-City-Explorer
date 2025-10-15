@@ -1,13 +1,14 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { webSearchTool } from './web-search-tool';
 
 /**
  * Travel Insurance Tool
- * Recommends travel insurance based on trip details
+ * Uses live web search to find real travel insurance options
  */
 export const travelInsuranceTool = createTool({
   id: 'travelInsuranceTool',
-  description: 'Get travel insurance recommendations based on trip details, destination, activities, and traveler profile. Provides coverage options and cost estimates.',
+  description: 'Get travel insurance recommendations using live web search. Provides current coverage options, cost estimates, and provider information based on trip details.',
   inputSchema: z.object({
     destination: z.string().describe('Trip destination'),
     duration: z.number().describe('Trip duration in days'),
@@ -17,17 +18,13 @@ export const travelInsuranceTool = createTool({
     preExisting: z.boolean().optional().describe('Pre-existing medical conditions'),
   }),
   outputSchema: z.object({
-    recommendations: z.array(z.object({
-      planName: z.string(),
-      coverage: z.string(),
-      estimatedCost: z.number(),
-      includes: z.array(z.string()),
-      bestFor: z.string(),
-    })),
-    mustHaveCoverage: z.array(z.string()),
-    tips: z.array(z.string()),
+    destination: z.string(),
+    duration: z.number(),
+    searchResults: z.string(),
+    summary: z.string(),
+    sources: z.array(z.string()),
   }),
-  execute: async ({ context }) => {
+  execute: async ({ context, runtimeContext }) => {
     const { 
       destination, 
       duration, 
@@ -37,113 +34,54 @@ export const travelInsuranceTool = createTool({
       preExisting = false 
     } = context;
 
-    console.log(`🛡️ [Travel Insurance] Finding coverage for ${destination}, ${duration} days`);
+    console.log(`🛡️ [Travel Insurance] Searching coverage for ${destination}, ${duration} days`);
 
-    // Risk assessment
-    const isHighRisk = activities.some(a => 
-      ['skiing', 'diving', 'climbing', 'extreme'].some(risk => a.toLowerCase().includes(risk))
-    );
+    // Build search query with specific details
+    const activityText = activities.length > 0 ? `${activities.join(' ')} activities` : '';
+    const preExistingText = preExisting ? 'pre-existing conditions' : '';
+    const ageText = age > 65 ? 'seniors' : age > 50 ? 'over 50' : '';
     
-    const isInternational = !['usa', 'canada', 'domestic'].some(local => 
-      destination.toLowerCase().includes(local)
-    );
-
-    // Base cost calculation
-    const baseCostPerDay = isInternational ? 5 : 3;
-    const ageMultiplier = age > 65 ? 1.8 : age > 50 ? 1.4 : 1.0;
-    const riskMultiplier = isHighRisk ? 1.5 : 1.0;
-    const preExistingMultiplier = preExisting ? 1.3 : 1.0;
-
-    const basicCost = Math.round(
-      baseCostPerDay * duration * travelers * ageMultiplier * 0.7
-    );
+    const searchQuery = `best travel insurance ${destination} ${duration} days ${activityText} ${preExistingText} ${ageText} ${travelers} travelers cost coverage ${new Date().getFullYear()}`.trim();
     
-    const comprehensiveCost = Math.round(
-      baseCostPerDay * duration * travelers * ageMultiplier * riskMultiplier * preExistingMultiplier
-    );
+    // Perform live web search
+    const searchResult = await webSearchTool.execute({
+      context: { query: searchQuery },
+      runtimeContext: runtimeContext || ({} as any),
+    });
 
-    const premiumCost = Math.round(comprehensiveCost * 1.5);
+    // Create comprehensive summary
+    const summary = `🛡️ Travel Insurance Options for ${destination} (${duration} days, ${travelers} ${travelers === 1 ? 'traveler' : 'travelers'}):
 
-    const recommendations = [
-      {
-        planName: 'Basic Travel Insurance',
-        coverage: 'Essential',
-        estimatedCost: basicCost,
-        includes: [
-          'Medical emergencies ($50,000)',
-          'Emergency evacuation ($100,000)',
-          'Trip cancellation (up to $5,000)',
-          '24/7 travel assistance',
-        ],
-        bestFor: 'Short trips, low-risk activities',
-      },
-      {
-        planName: 'Comprehensive Travel Insurance',
-        coverage: 'Standard',
-        estimatedCost: comprehensiveCost,
-        includes: [
-          'Medical emergencies ($100,000)',
-          'Emergency evacuation ($250,000)',
-          'Trip cancellation/interruption ($10,000)',
-          'Baggage loss/delay',
-          'Flight delays',
-          '24/7 travel assistance',
-          preExisting ? 'Pre-existing conditions covered' : 'Adventure activities covered',
-        ],
-        bestFor: 'Most international trips',
-      },
-      {
-        planName: 'Premium Travel Insurance',
-        coverage: 'Premium',
-        estimatedCost: premiumCost,
-        includes: [
-          'Medical emergencies ($250,000+)',
-          'Emergency evacuation ($500,000)',
-          'Trip cancellation/interruption ($25,000)',
-          'Baggage loss (full coverage)',
-          'Rental car coverage',
-          'Adventure sports coverage',
-          'Pre-existing conditions covered',
-          'Cancel for any reason (CFAR)',
-          'Concierge services',
-        ],
-        bestFor: 'Long trips, high-value trips, adventure activities',
-      },
-    ];
+${searchResult.summary}
 
-    const mustHaveCoverage = [
-      '🏥 Medical emergencies and hospitalization',
-      '🚑 Emergency medical evacuation',
-      '✈️ Trip cancellation/interruption',
-      '🧳 Lost or delayed baggage',
-      '⏰ Flight delays and missed connections',
-    ];
+**Important Considerations:**
+${activities.length > 0 ? `🏂 Adventure Activities: ${activities.join(', ')} - Ensure your policy covers these` : '✅ Standard travel activities typically covered'}
+${preExisting ? '💊 Pre-existing Conditions: Look for policies with medical condition coverage' : ''}
+${age > 65 ? '👴 Senior Travel: Age may affect pricing and coverage options' : ''}
 
-    if (isHighRisk) {
-      mustHaveCoverage.push('🏂 Adventure sports and activities coverage');
-    }
+**Essential Coverage to Look For:**
+🏥 Medical emergencies ($50,000-250,000)
+🚑 Emergency evacuation ($100,000-500,000)
+✈️ Trip cancellation/interruption
+🧳 Baggage loss/delay
+⏰ Flight delays
 
-    if (preExisting) {
-      mustHaveCoverage.push('💊 Pre-existing conditions coverage');
-    }
+**Tips:**
+💰 Buy within 14-21 days of booking for best coverage
+📋 Compare providers: World Nomads, Allianz, Travel Guard, SafetyWing
+💳 Check if your credit card includes travel insurance
+📱 Download provider's app for easy claims
 
-    const tips = [
-      `💰 Average cost: $${Math.round(comprehensiveCost / travelers)} per person for ${duration} days`,
-      `📅 Buy insurance within 14-21 days of booking for best coverage`,
-      `📋 Read policy exclusions carefully`,
-      `🏥 Check if your health insurance covers international travel`,
-      `💳 Some credit cards include basic travel insurance`,
-      `📱 Download insurance company's app for easy claims`,
-      `📞 Save emergency contact numbers before departure`,
-      isHighRisk ? `⚠️ Adventure activities require specific coverage` : `✅ Standard activities covered by most policies`,
-    ];
+⚠️ **Disclaimer**: This is informational guidance. Always read policy details and verify coverage with insurance providers.`;
 
-    console.log(`✅ [Travel Insurance] Recommended ${recommendations.length} plans, from $${basicCost}`);
+    console.log(`✅ [Travel Insurance] Found current options for ${destination}`);
 
     return {
-      recommendations,
-      mustHaveCoverage,
-      tips,
+      destination,
+      duration,
+      searchResults: searchResult.results,
+      summary,
+      sources: searchResult.sources || [],
     };
   },
 });
