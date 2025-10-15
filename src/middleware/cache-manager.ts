@@ -21,7 +21,10 @@ export async function initializeCache(): Promise<void> {
   if (REDIS_URL) {
     try {
       // Dynamically import ioredis only if Redis URL is provided
-      const { default: Redis } = await import('ioredis');
+      const ioredisModule = await import('ioredis');
+      // Handle both ESM and CJS exports
+      const Redis = ioredisModule.default || ioredisModule;
+      
       redisClient = new Redis(REDIS_URL, {
         retryStrategy: (times) => {
           if (times > 3) {
@@ -30,6 +33,8 @@ export async function initializeCache(): Promise<void> {
           }
           return Math.min(times * 100, 3000);
         },
+        lazyConnect: false,
+        enableReadyCheck: true,
       });
       
       await redisClient.ping();
@@ -38,6 +43,7 @@ export async function initializeCache(): Promise<void> {
     } catch (error) {
       console.warn('⚠️ [Cache] Redis not available, using in-memory cache:', error);
       useRedis = false;
+      redisClient = null;
     }
   } else {
     console.log('💾 [Cache] Using in-memory cache (no REDIS_URL provided)');
