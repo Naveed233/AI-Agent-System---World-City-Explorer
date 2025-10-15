@@ -86,7 +86,7 @@ export const hotelBookingTool = createTool({
     try {
       // Step 1: Get city IATA code
       const cityCode = getIATACode(city);
-      console.log(`🔍 [Hotel Booking] Using city code: ${cityCode}`);
+      console.log(`🔍 [Hotel Booking] "${city}" → IATA code: ${cityCode}`);
 
       // Step 2: Search hotels by city
       const hotelListData = await amadeusRequest('/v1/reference-data/locations/hotels/by-city', {
@@ -177,30 +177,33 @@ export const hotelBookingTool = createTool({
       return {
         city,
         hotels: [{
-          name: `Hotels in ${city}`,
-          category: 'Multiple Options',
+          name: `Search hotels in ${city}`,
+          category: 'Information',
           pricePerNight: 0,
           rating: 0,
           reviewCount: 0,
           amenities: [],
-          location: city,
-          distance: 'Various locations',
+          location: `${city} - Various locations`,
+          distance: 'City-wide',
           bookingUrls: {
-            booking: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}`,
-            hotels: `https://www.hotels.com/search.do?q-destination=${encodeURIComponent(city)}`,
-            airbnb: `https://www.airbnb.com/s/${encodeURIComponent(city)}`,
+            booking: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}&checkin=${checkInDate}&checkout=${checkOutDate}&group_adults=${guests}`,
+            hotels: `https://www.hotels.com/search.do?q-destination=${encodeURIComponent(city)}&q-check-in=${checkInDate}&q-check-out=${checkOutDate}&q-rooms=1&q-room-0-adults=${guests}`,
+            airbnb: `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?checkin=${checkInDate}&checkout=${checkOutDate}&adults=${guests}`,
           },
-          highlights: [],
+          highlights: ['💡 Click links to search on booking platforms'],
         }],
         averagePrice: 0,
         recommendations: [
-          `🔍 Live hotel search results:`,
-          searchResult.summary,
-          ``,
-          `📱 Book on: Booking.com, Hotels.com, Airbnb, or directly with hotels`,
-          `⚠️ Amadeus API temporarily unavailable - showing web results`,
+          `⚠️ Unable to retrieve live hotel data for ${city} from Amadeus API`,
+          `🔍 Please use these booking platforms to search:`,
+          `   • Booking.com - Click the link above`,
+          `   • Hotels.com - Click the link above`,
+          `   • Airbnb - Click the link above`,
+          `💡 Or search directly on Google: "hotels in ${city}"`,
+          `📅 Your dates: ${checkInDate} to ${checkOutDate}`,
+          `👥 Guests: ${guests}`,
         ],
-        source: 'Web Search (Fallback)',
+        source: 'Manual Search Required (API Unavailable)',
       };
     }
   },

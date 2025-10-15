@@ -276,6 +276,50 @@ export const CITY_TO_IATA: Record<string, string> = {
   'JAIPUR': 'JAI',
   'KOCHI': 'COK',
   'COCHIN': 'COK',
+  'LUCKNOW': 'LKO',
+  'SRINAGAR': 'SXR',
+  'VARANASI': 'VNS',
+  'AMRITSAR': 'ATQ',
+  'CHANDIGARH': 'IXC',
+  'NAGPUR': 'NAG',
+  'INDORE': 'IDR',
+  'BHUBANESWAR': 'BBI',
+  'TRIVANDRUM': 'TRV',
+  'THIRUVANANTHAPURAM': 'TRV',
+  
+  // Pakistan
+  'LAHORE': 'LHE',
+  'KARACHI': 'KHI',
+  'ISLAMABAD': 'ISB',
+  'RAWALPINDI': 'ISB',
+  'FAISALABAD': 'LYP',
+  'MULTAN': 'MUX',
+  'PESHAWAR': 'PEW',
+  'QUETTA': 'UET',
+  'SIALKOT': 'SKT',
+  
+  // Bangladesh
+  'DHAKA': 'DAC',
+  'CHITTAGONG': 'CGP',
+  'SYLHET': 'ZYL',
+  'COX\'S BAZAR': 'CXB',
+  
+  // Sri Lanka
+  'COLOMBO': 'CMB',
+  'KANDY': 'KDZ',
+  'GALLE': 'GLT',
+  
+  // Nepal
+  'KATHMANDU': 'KTM',
+  'POKHARA': 'PKR',
+  
+  // Afghanistan
+  'KABUL': 'KBL',
+  'KANDAHAR': 'KDH',
+  'HERAT': 'HEA',
+  
+  // Maldives
+  'MALE': 'MLE',
   
   // Middle East
   'DUBAI': 'DXB',
