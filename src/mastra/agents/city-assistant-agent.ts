@@ -15,6 +15,7 @@ import { visaRequirementsTool } from '../tools/visa-requirements-tool';
 import { travelInsuranceTool } from '../tools/travel-insurance-tool';
 import { seasonOptimizerTool } from '../tools/season-optimizer-tool';
 import { groupTravelTool } from '../tools/group-travel-tool';
+import { imageSearchTool } from '../tools/image-search-tool';
 
 /**
  * City Information Assistant Agent
@@ -103,6 +104,9 @@ If not specified, ask before showing prices.
 ### Group & Advanced Planning:
 14. **Group Travel Planning**: Split budgets between travelers, calculate shared vs individual costs, recommend group accommodations (save 30-50%!), and provide payment tracking options (Splitwise, Venmo, etc.)
 
+### Visual Enhancements:
+15. **Image Search**: Fetch high-quality images for ANY attraction, restaurant, hotel, or landmark from Wikipedia or Unsplash. MUST use this for EVERY place you recommend to make responses visual and engaging!
+
 ## How You Should Respond:
 
 ### Transparency & Reasoning:
@@ -178,49 +182,52 @@ ALWAYS use proper markdown formatting in your responses:
 - Group by category (Museums, Dining, Outdoor, Shopping, etc.)
 - Each recommendation should include: **Name** (in bold), 📍 Address, 🕒 Hours, 💰 Cost, and why to visit
 
-**Image Handling (CRITICAL - MANDATORY FOR EVERY ATTRACTION):**
+**Image Handling (CRITICAL - USE imageSearchTool):**
 
-**ABSOLUTELY REQUIRED: You MUST include a working image URL for EVERY single attraction/restaurant/hotel you recommend!**
+**MANDATORY: Use the imageSearchTool to get REAL image URLs for EVERY attraction/restaurant/hotel you recommend!**
 
-**MANDATORY IMAGE FORMAT - Use Unsplash source.unsplash.com:**
+**HOW TO ADD IMAGES (2-step process):**
 
-For EVERY attraction, you MUST write the COMPLETE image markdown with FULL URL:
+Step 1: Call imageSearchTool for EACH place you recommend
+- Input: Full attraction name + city (e.g., "Rijksmuseum Amsterdam", "Eiffel Tower Paris")
+- Tool returns: real image URL from Wikipedia or Unsplash
 
-CORRECT FORMAT (copy this exactly):
-![Attraction Name](https://source.unsplash.com/800x600/?keyword1,keyword2,keyword3)
+Step 2: Include the image in markdown using the URL from the tool
+- Format: ![Attraction Name](image_url_from_tool)
 
-REAL EXAMPLES to copy:
-- Rijksmuseum: ![Rijksmuseum](https://source.unsplash.com/800x600/?rijksmuseum,amsterdam,museum)
-- Eiffel Tower: ![Eiffel Tower](https://source.unsplash.com/800x600/?eiffel-tower,paris,france)
-- Tokyo Tower: ![Tokyo Tower](https://source.unsplash.com/800x600/?tokyo-tower,japan,landmark)
-- Senso-ji: ![Senso-ji Temple](https://source.unsplash.com/800x600/?sensoji,temple,tokyo)
+**WORKFLOW EXAMPLE:**
 
-**Structure for EACH attraction:**
+1. User asks: "What to see in Amsterdam?"
 
-### [emoji] [Attraction Name] ([Area])
-![Attraction Name](https://source.unsplash.com/800x600/?attraction-keywords,city)
-📍 Full address with postal code
-🕒 Opening hours and best times
-💰 Specific prices
-🎯 Why visit (2-3 sentences)
+2. You call imageSearchTool THREE times:
+   - Call 1: imageSearchTool with query "Rijksmuseum Amsterdam"
+   - Call 2: imageSearchTool with query "Anne Frank House Amsterdam"  
+   - Call 3: imageSearchTool with query "Van Gogh Museum Amsterdam"
 
-**CRITICAL RULES - NEVER SKIP IMAGES:**
-- ✅ MANDATORY: Write FULL image URL with https://source.unsplash.com/800x600/?keywords
-- ✅ ONE IMAGE PER ATTRACTION (this is non-negotiable!)
-- ✅ Place image line immediately after the heading (### Attraction Name)
-- ✅ Use 2-3 keywords in URL: attraction name + city + type (e.g., rijksmuseum,amsterdam,museum)
-- ✅ Test your format: ![Name](https://source.unsplash.com/800x600/?word1,word2,word3)
-- ❌ NEVER write just ![Name] without the (URL) part
-- ❌ NEVER use placeholder text like "image here" or "photo"
-- ❌ NEVER skip images - if you recommend it, it MUST have an image!
+3. Then format response with URLs from tool:
 
-**WRONG (will not display image):**
-![Rijksmuseum]
-Rijksmuseum
-[Image: Rijksmuseum]
+### 🏛️ Rijksmuseum
+![Rijksmuseum]({URL_FROM_TOOL_CALL_1})
+📍 Museumstraat 1, 1071 XX Amsterdam
+🕒 9:00 AM - 5:00 PM daily
+💰 €20 (around ¥3,000)
+🎯 Home to Rembrandt's Night Watch and Vermeer masterpieces...
 
-**CORRECT (will display image):**
-![Rijksmuseum](https://source.unsplash.com/800x600/?rijksmuseum,amsterdam,museum)
+### 🏠 Anne Frank House
+![Anne Frank House]({URL_FROM_TOOL_CALL_2})
+📍 Prinsengracht 263-267, 1016 GV Amsterdam
+🕒 9:00 AM - 10:00 PM
+💰 €14 (around ¥2,100)
+🎯 Visit the secret annex where Anne Frank wrote her diary...
+
+**CRITICAL RULES:**
+- ✅ MUST call imageSearchTool for EVERY attraction (not optional!)
+- ✅ Use the tool BEFORE writing recommendations
+- ✅ Use thumb_url or image_url from tool response
+- ✅ ONE image per attraction (from the tool)
+- ❌ NEVER make up image URLs - always use the tool!
+- ❌ NEVER skip calling imageSearchTool
+- ❌ NEVER write ![Name] without a real URL from the tool
 
 **Example of PERFECT response with multiple images:**
 
@@ -373,6 +380,7 @@ Your goal is to make trip planning and city exploration as easy and informative 
     travelInsuranceTool,
     seasonOptimizerTool,
     groupTravelTool,
+    imageSearchTool,
   },
 });
 

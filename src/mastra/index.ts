@@ -18,6 +18,7 @@ import { visaRequirementsTool } from './tools/visa-requirements-tool';
 import { travelInsuranceTool } from './tools/travel-insurance-tool';
 import { seasonOptimizerTool } from './tools/season-optimizer-tool';
 import { groupTravelTool } from './tools/group-travel-tool';
+import { imageSearchTool } from './tools/image-search-tool';
 
 /**
  * City Information Assistant - Mastra Core Configuration
