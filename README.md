@@ -1,5 +1,5 @@
 # 🏙️ City Information Assistant - Complete Travel Planning Platform
-
+https://ai-city-travel-frontend.vercel.app/
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Mastra](https://img.shields.io/badge/Mastra-0.20-green.svg)](https://mastra.ai)
 [![AI SDK](https://img.shields.io/badge/AI%20SDK-v5-orange.svg)](https://sdk.vercel.ai)
