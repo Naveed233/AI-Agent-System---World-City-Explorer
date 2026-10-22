@@ -50,7 +50,10 @@ export const travelInsuranceTool = createTool({
     });
 
     // Create comprehensive summary with web results
-    const webResults = searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n');
+    // Say plainly when live search failed instead of returning an empty list as if it were an answer.
+    const webResults = searchResult.results.length
+      ? searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n')
+      : `Live search returned nothing (${searchResult.message ?? searchResult.status}). Do not guess; tell the user to check the official sources below.`;
     
     const summary = `🛡️ Travel Insurance Options for ${destination} (${duration} days, ${travelers} ${travelers === 1 ? 'traveler' : 'travelers'}):
 

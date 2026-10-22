@@ -35,7 +35,10 @@ export const visaRequirementsTool = createTool({
     });
 
     // Extract key information from search results
-    const webResults = searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n');
+    // Say plainly when live search failed instead of returning an empty list as if it were an answer.
+    const webResults = searchResult.results.length
+      ? searchResult.results.slice(0, 3).map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n')
+      : `Live search returned nothing (${searchResult.message ?? searchResult.status}). Do not guess; tell the user to check the official sources below.`;
     
     const summary = `📍 Visa information for ${passportCountry} passport holders traveling to ${destinationCountry}:\n\n${webResults}\n\n⚠️ **Important**: Visa requirements can change. Always verify with:\n- Official ${destinationCountry} embassy/consulate website\n- Your country's foreign affairs department\n- IATA Travel Centre (iatatravelcentre.com)`;
 

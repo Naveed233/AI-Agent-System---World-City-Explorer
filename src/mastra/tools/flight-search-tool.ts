@@ -1,253 +1,229 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { amadeusRequest } from './helpers/amadeus-client';
-import { webSearchTool } from './web-search-tool';
-import { getIATACode, isAmbiguousCity, getAmbiguousCitySuggestions } from './helpers/city-iata-mapper';
+import { serpApiSearch, describeSerpApiError, SerpApiError } from './helpers/serpapi-client';
+import { getIATACode } from './helpers/city-iata-mapper';
+import { isValidIsoDate, todayIso, addDaysIso, daysBetween, formatMinutes } from './helpers/trip-dates';
 import { checkToolRateLimit } from '../../middleware/rate-limiter';
 
 /**
  * Flight Search Tool
- * Searches for real flights using Amadeus API
- * Falls back to web search if API fails
+ * Live prices from Google Flights through SerpApi.
+ *
+ * Amadeus Self-Service (the previous source) shut down, and the old fallback
+ * returned a Google Flights link with price 0, so the bot never had real fares.
+ * This tool now returns either real flights or an explicit status explaining why not.
  */
+
+const CABIN_TO_SERPAPI: Record<string, number> = { economy: 1, premium: 2, business: 3, first: 4 };
+// SerpApi "stops": 1 = nonstop only, 2 = up to 1 stop, 3 = up to 2 stops
+const MAX_STOPS_TO_SERPAPI: Record<number, number> = { 0: 1, 1: 2, 2: 3 };
+const MAX_PASSENGERS = 9; // Google Flights allows at most 9 passengers per booking
+
+const flightSchema = z.object({
+  airlines: z.string(),
+  flightNumbers: z.array(z.string()),
+  departure: z.object({ airport: z.string(), code: z.string(), time: z.string() }),
+  arrival: z.object({ airport: z.string(), code: z.string(), time: z.string() }),
+  durationMinutes: z.number().optional(),
+  duration: z.string().optional(),
+  stops: z.number(),
+  layovers: z.array(z.object({ airport: z.string(), duration: z.string().optional(), overnight: z.boolean().optional() })),
+  price: z.number().optional(),
+  isBestOption: z.boolean(),
+});
+
+export type FlightOption = z.infer<typeof flightSchema>;
+
 export const flightSearchTool = createTool({
   id: 'flightSearchTool',
-  description: 'Search for real flights between cities using Amadeus API. Provides actual prices, airlines, flight times, and direct booking links.',
+  description:
+    'Search LIVE flight prices and schedules (Google Flights). Call this for any question about flights, fares, airlines or flight times. ' +
+    'Pass 3-letter IATA airport codes when you know them (Tokyo Haneda = HND, Narita = NRT, London Heathrow = LHR). ' +
+    'Returns real flights with prices, or a status explaining what is missing.',
   inputSchema: z.object({
-    origin: z.string().describe('Origin city or IATA airport code (e.g., "London", "LHR", "New York", "JFK")'),
-    destination: z.string().describe('Destination city or IATA airport code'),
-    departureDate: z.string().optional().describe('Departure date (YYYY-MM-DD). Defaults to 7 days from now.'),
-    returnDate: z.string().optional().describe('Return date for round trip (YYYY-MM-DD)'),
-    passengers: z.number().optional().describe('Number of adult passengers (default: 1)'),
-    class: z.enum(['economy', 'premium', 'business', 'first']).optional().describe('Flight class'),
+    origin: z.string().min(1).describe('Origin IATA airport code (preferred, e.g. "HND") or city name'),
+    destination: z.string().min(1).describe('Destination IATA airport code (preferred, e.g. "LHR") or city name'),
+    departureDate: z.string().optional().describe('Departure date YYYY-MM-DD. If omitted, searches 14 days from today and says so.'),
+    returnDate: z.string().optional().describe('Return date YYYY-MM-DD for a round trip. Omit for one-way.'),
+    passengers: z.number().int().optional().describe('Number of adult passengers, 1-9 (default 1)'),
+    class: z.enum(['economy', 'premium', 'business', 'first']).optional().describe('Cabin class (default economy)'),
+    maxStops: z.number().int().min(0).max(2).optional().describe('0 = nonstop only, 1 = up to one stop, 2 = up to two stops'),
+    currency: z.string().length(3).optional().describe('ISO currency code for prices, e.g. JPY, USD (default USD)'),
   }),
   outputSchema: z.object({
-    origin: z.string(),
-    destination: z.string(),
-    flights: z.array(z.object({
-      airline: z.string(),
-      flightNumber: z.string(),
-      duration: z.string(),
-      stops: z.number(),
-      price: z.number(),
+    status: z.enum(['ok', 'no_results', 'needs_input', 'error', 'rate_limited']),
+    message: z.string().optional(),
+    search: z.object({
+      origin: z.string(),
+      destination: z.string(),
+      departureDate: z.string(),
+      returnDate: z.string().optional(),
+      tripType: z.enum(['one_way', 'round_trip']),
+      passengers: z.number(),
+      cabin: z.string(),
       currency: z.string(),
-      class: z.string(),
-      departureTime: z.string(),
-      arrivalTime: z.string(),
-      bookingUrl: z.string(),
-    })),
-    cheapestPrice: z.number(),
-    fastestDuration: z.string(),
-    recommendations: z.array(z.string()),
+      departureDateAssumed: z.boolean(),
+    }).optional(),
+    flights: z.array(flightSchema),
+    cheapestPrice: z.number().optional(),
+    priceInsights: z.object({
+      lowestPrice: z.number().optional(),
+      priceLevel: z.string().optional(),
+      typicalRange: z.array(z.number()).optional(),
+    }).optional(),
+    priceNote: z.string().optional(),
+    googleFlightsUrl: z.string().optional(),
     source: z.string(),
   }),
-  execute: async ({ context, runtimeContext }) => {
-    const { 
-      origin, 
-      destination, 
-      departureDate, 
-      returnDate, 
-      passengers = 1,
-      class: flightClass = 'economy' 
-    } = context;
+  execute: async ({ context }) => {
+    const source = 'Google Flights via SerpApi';
+    const empty = { flights: [] as FlightOption[], source };
 
-    // Rate limiting check (20 flight searches per hour per user)
-    const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
-    const rateLimitResult = checkToolRateLimit(identifier, 'flight');
-    
-    if (!rateLimitResult.allowed) {
-      console.warn(`🚫 [Flight Search] Rate limit exceeded for ${identifier}`);
-      return {
-        origin,
-        destination,
-        flights: [],
-        cheapestPrice: 0,
-        fastestDuration: 'N/A',
-        recommendations: [
-          `⚠️ ${rateLimitResult.message}`,
-          `💡 You can search again after the limit resets`,
-          `📊 Remaining searches: ${rateLimitResult.remaining}/20 per hour`,
-        ],
-        source: 'Rate Limited',
-      };
+    const passengers = context.passengers ?? 1;
+    const cabin = context.class ?? 'economy';
+    const currency = (context.currency ?? 'USD').toUpperCase();
+
+    // ---- Validate before spending a paid search ----
+    const originCode = getIATACode(context.origin);
+    const destCode = getIATACode(context.destination);
+    if (!originCode || !destCode) {
+      const unknown = [!originCode && context.origin, !destCode && context.destination].filter(Boolean).join(' and ');
+      return { ...empty, status: 'needs_input' as const, message: `Could not find an airport for ${unknown}. Ask the user for the city's airport or pass its 3-letter IATA code.` };
+    }
+    if (originCode === destCode) {
+      return { ...empty, status: 'needs_input' as const, message: 'Origin and destination are the same airport.' };
+    }
+    if (passengers < 1 || passengers > MAX_PASSENGERS) {
+      return { ...empty, status: 'needs_input' as const, message: `Passengers must be between 1 and ${MAX_PASSENGERS}.` };
+    }
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return { ...empty, status: 'needs_input' as const, message: `"${currency}" is not a currency code.` };
     }
 
-    console.log(`✈️ [Flight Search] Searching flights: ${origin} → ${destination} (Live API) [${rateLimitResult.remaining} remaining]`);
+    const today = todayIso();
+    const departureDateAssumed = !context.departureDate;
+    const departureDate = context.departureDate ?? addDaysIso(today, 14);
+    if (!isValidIsoDate(departureDate)) {
+      return { ...empty, status: 'needs_input' as const, message: `Departure date "${departureDate}" is not a valid YYYY-MM-DD date.` };
+    }
+    if (daysBetween(today, departureDate) < 0) {
+      return { ...empty, status: 'needs_input' as const, message: `Departure date ${departureDate} is in the past (today is ${today}).` };
+    }
+    if (daysBetween(today, departureDate) > 330) {
+      return { ...empty, status: 'needs_input' as const, message: 'Airlines publish fares about 11 months ahead; pick an earlier departure date.' };
+    }
+    const returnDate = context.returnDate;
+    if (returnDate) {
+      if (!isValidIsoDate(returnDate)) {
+        return { ...empty, status: 'needs_input' as const, message: `Return date "${returnDate}" is not a valid YYYY-MM-DD date.` };
+      }
+      if (daysBetween(departureDate, returnDate) < 0) {
+        return { ...empty, status: 'needs_input' as const, message: `Return date ${returnDate} is before the departure date ${departureDate}.` };
+      }
+    }
 
-    // Default departure date to 7 days from now if not provided
-    const defaultDate = new Date();
-    defaultDate.setDate(defaultDate.getDate() + 7);
-    const depDate = departureDate || defaultDate.toISOString().split('T')[0];
+    const tripType = returnDate ? 'round_trip' : 'one_way';
+    const search = { origin: originCode, destination: destCode, departureDate, returnDate, tripType, passengers, cabin, currency, departureDateAssumed } as const;
 
-    // Map class to Amadeus format
-    const classMap: Record<string, string> = {
-      'economy': 'ECONOMY',
-      'premium': 'PREMIUM_ECONOMY',
-      'business': 'BUSINESS',
-      'first': 'FIRST',
-    };
+    const rate = checkToolRateLimit('global', 'flight');
+    if (!rate.allowed) {
+      return { ...empty, status: 'rate_limited' as const, message: rate.message, search };
+    }
 
-    const travelClass = classMap[flightClass];
-
+    let data: any;
     try {
-      // Check if cities are ambiguous
-      if (isAmbiguousCity(origin)) {
-        const suggestions = getAmbiguousCitySuggestions(origin);
-        if (suggestions.length > 0) {
-          console.log(`⚠️ [Flight Search] Ambiguous city: ${origin}. Suggestions: ${suggestions.join(', ')}`);
-        }
-      }
-      
-      // Get IATA codes for cities (if they're not already codes)
-      const originCode = getIATACode(origin);
-      const destCode = getIATACode(destination);
-
-      console.log(`🔍 [Flight Search] Using airport codes: ${originCode} → ${destCode}`);
-
-      // Build Amadeus API request
-      const params: Record<string, any> = {
-        originLocationCode: originCode,
-        destinationLocationCode: destCode,
-        departureDate: depDate,
-        adults: passengers,
-        travelClass,
-        max: 5, // Return top 5 results
-        currencyCode: 'USD', // TODO: Use user's preferred currency
-      };
-
-      if (returnDate) {
-        params.returnDate = returnDate;
-      }
-
-      // Make Amadeus API request
-      const data = await amadeusRequest('/v2/shopping/flight-offers', params);
-
-      if (!data.data || data.data.length === 0) {
-        throw new Error('No flights found');
-      }
-
-      console.log(`✅ [Flight Search] Found ${data.data.length} flight options`);
-
-      // Parse Amadeus response
-      const flights = data.data.slice(0, 5).map((offer: any) => {
-        const itinerary = offer.itineraries[0]; // First itinerary (outbound)
-        const firstSegment = itinerary.segments[0];
-        const lastSegment = itinerary.segments[itinerary.segments.length - 1];
-        
-        const airline = firstSegment.carrierCode;
-        const flightNumber = `${firstSegment.carrierCode}${firstSegment.number}`;
-        const duration = itinerary.duration.replace('PT', '').toLowerCase();
-        const stops = itinerary.segments.length - 1;
-        const price = parseFloat(offer.price.total);
-        const currency = offer.price.currency;
-
-        return {
-          airline: getAirlineName(airline),
-          flightNumber,
-          duration,
-          stops,
-          price,
+      data = await serpApiSearch(
+        {
+          engine: 'google_flights',
+          departure_id: originCode,
+          arrival_id: destCode,
+          outbound_date: departureDate,
+          return_date: returnDate,
+          type: returnDate ? 1 : 2, // 1 = round trip, 2 = one way
+          travel_class: CABIN_TO_SERPAPI[cabin],
+          adults: passengers,
+          stops: context.maxStops !== undefined ? MAX_STOPS_TO_SERPAPI[context.maxStops] : undefined,
           currency,
-          class: offer.travelerPricings[0].fareDetailsBySegment[0].cabin,
-          departureTime: firstSegment.departure.at,
-          arrivalTime: lastSegment.arrival.at,
-          bookingUrl: `https://www.google.com/travel/flights?q=${originCode}+to+${destCode}+${depDate}`,
-        };
-      });
-
-      const cheapestPrice = Math.min(...flights.map((f: any) => f.price));
-      const fastestDuration = flights.reduce((min: string, f: any) => {
-        const current = f.duration;
-        return current < min ? current : min;
-      }, flights[0].duration);
-
-      const recommendations = [
-        `💰 Cheapest: ${cheapestPrice} ${flights[0].currency} ${returnDate ? '(round trip)' : '(one-way)'}`,
-        `⚡ Fastest: ${fastestDuration}`,
-        `✈️ ${flights.filter((f: any) => f.stops === 0).length} direct flight(s) available`,
-        `📅 Book 2-3 months ahead for best prices`,
-        `🔄 Compare with Google Flights for more options`,
-      ];
-
-      return {
-        origin: originCode,
-        destination: destCode,
-        flights,
-        cheapestPrice,
-        fastestDuration,
-        recommendations,
-        source: 'Amadeus API (Live)',
-      };
-
+          hl: 'en',
+        },
+        1800, // fares move; 30 minutes
+      );
     } catch (error) {
-      console.error(`❌ [Flight Search] Amadeus API error:`, error);
-      console.log(`⚠️ [Flight Search] Falling back to web search`);
-
-      // Fallback to web search
-      const searchQuery = `flights from ${origin} to ${destination} ${depDate} ${passengers} passengers ${flightClass} class price`;
-      
-      const searchResult = await webSearchTool.execute({
-        context: { query: searchQuery },
-        runtimeContext: runtimeContext || ({} as any),
-      });
-
-      // Return web search results in a compatible format
-      return {
-        origin,
-        destination,
-        flights: [{
-          airline: 'Multiple Airlines',
-          flightNumber: 'See booking site',
-          duration: 'Varies',
-          stops: 0,
-          price: 0,
-          currency: 'USD',
-          class: flightClass,
-          departureTime: depDate,
-          arrivalTime: depDate,
-          bookingUrl: `https://www.google.com/travel/flights?q=${origin}+to+${destination}+${depDate}`,
-        }],
-        cheapestPrice: 0,
-        fastestDuration: 'See search results',
-        recommendations: [
-          `🔍 Live flight search results:`,
-          searchResult.results.map((r: any) => `• ${r.title}: ${r.snippet}`).join('\n'),
-          ``,
-          `📱 Book on: Google Flights, Skyscanner, Kayak, or directly with airlines`,
-          `⚠️ Amadeus API temporarily unavailable - showing web results`,
-        ],
-        source: 'Web Search (Fallback)',
-      };
+      console.error('[flightSearchTool]', error instanceof SerpApiError ? `${error.code}: ${error.message}` : error);
+      const noResults = error instanceof SerpApiError && error.code === 'no_results';
+      return { ...empty, status: noResults ? ('no_results' as const) : ('error' as const), message: describeSerpApiError(error), search };
     }
+
+    const flights = parseFlights(data);
+    const googleFlightsUrl = typeof data?.search_metadata?.google_flights_url === 'string' ? data.search_metadata.google_flights_url : undefined;
+
+    if (flights.length === 0) {
+      return { ...empty, status: 'no_results' as const, message: `No flights found from ${originCode} to ${destCode} on ${departureDate}.`, search, googleFlightsUrl };
+    }
+
+    const prices = flights.map((f) => f.price).filter((p): p is number => typeof p === 'number');
+    const insights = data?.price_insights;
+
+    return {
+      status: 'ok' as const,
+      search,
+      flights,
+      cheapestPrice: prices.length ? Math.min(...prices) : undefined,
+      priceInsights: insights
+        ? {
+            lowestPrice: typeof insights.lowest_price === 'number' ? insights.lowest_price : undefined,
+            priceLevel: typeof insights.price_level === 'string' ? insights.price_level : undefined,
+            typicalRange: Array.isArray(insights.typical_price_range) ? insights.typical_price_range.filter((n: unknown) => typeof n === 'number') : undefined,
+          }
+        : undefined,
+      priceNote:
+        `Prices in ${currency} as listed on Google Flights for ${passengers} adult${passengers > 1 ? 's' : ''}` +
+        (returnDate ? ', round trip. Times shown are the outbound leg.' : ', one way.'),
+      googleFlightsUrl,
+      source,
+    };
   },
 });
 
-/**
- * Get airline full name from carrier code
- */
-function getAirlineName(code: string): string {
-  const airlines: Record<string, string> = {
-    'AA': 'American Airlines',
-    'UA': 'United Airlines',
-    'DL': 'Delta Air Lines',
-    'BA': 'British Airways',
-    'LH': 'Lufthansa',
-    'AF': 'Air France',
-    'KL': 'KLM',
-    'EK': 'Emirates',
-    'QR': 'Qatar Airways',
-    'SQ': 'Singapore Airlines',
-    'CX': 'Cathay Pacific',
-    'JL': 'Japan Airlines',
-    'NH': 'ANA',
-    'QF': 'Qantas',
-    'EY': 'Etihad Airways',
-    'TK': 'Turkish Airlines',
-    'AC': 'Air Canada',
-    'LX': 'Swiss International',
-    'OS': 'Austrian Airlines',
-    'AZ': 'ITA Airways',
-  };
-
-  return airlines[code] || code;
+/** Turn SerpApi best_flights + other_flights into a compact list, cheapest first, max 6. */
+export function parseFlights(data: any): FlightOption[] {
+  const options: FlightOption[] = [];
+  const groups: Array<[unknown, boolean]> = [[data?.best_flights, true], [data?.other_flights, false]];
+  for (const [list, isBest] of groups) {
+    if (!Array.isArray(list)) continue;
+    for (const option of list) {
+      const segments: any[] = Array.isArray(option?.flights) ? option.flights : [];
+      if (segments.length === 0) continue;
+      const first = segments[0];
+      const last = segments[segments.length - 1];
+      const airlines = [...new Set(segments.map((s) => s?.airline).filter((a): a is string => typeof a === 'string'))];
+      options.push({
+        airlines: airlines.join(', ') || 'Unknown airline',
+        flightNumbers: segments.map((s) => s?.flight_number).filter((n): n is string => typeof n === 'string'),
+        departure: {
+          airport: String(first?.departure_airport?.name ?? ''),
+          code: String(first?.departure_airport?.id ?? ''),
+          time: String(first?.departure_airport?.time ?? ''),
+        },
+        arrival: {
+          airport: String(last?.arrival_airport?.name ?? ''),
+          code: String(last?.arrival_airport?.id ?? ''),
+          time: String(last?.arrival_airport?.time ?? ''),
+        },
+        durationMinutes: typeof option?.total_duration === 'number' ? option.total_duration : undefined,
+        duration: formatMinutes(option?.total_duration),
+        stops: segments.length - 1,
+        layovers: (Array.isArray(option?.layovers) ? option.layovers : []).map((l: any) => ({
+          airport: String(l?.name ?? l?.id ?? ''),
+          duration: formatMinutes(l?.duration),
+          overnight: l?.overnight === true ? true : undefined,
+        })),
+        price: typeof option?.price === 'number' && option.price > 0 ? option.price : undefined,
+        isBestOption: isBest,
+      });
+    }
+  }
+  // Priced options first, cheapest first; unpriced (sold out / unknown) last.
+  options.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+  return options.slice(0, 6);
 }

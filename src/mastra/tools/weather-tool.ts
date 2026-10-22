@@ -26,28 +26,20 @@ export const weatherTool = createTool({
   execute: async ({ context: { city, country } }) => {
     const apiKey = process.env.OPENWEATHER_API_KEY;
     
-    // If API key not set, return mock data for development
+    // No mock data: a made-up "23.5°C, clear sky" would be presented to users as live weather.
     if (!apiKey || apiKey === 'your_openweather_api_key_here') {
-      console.warn('⚠️ OPENWEATHER_API_KEY not set, returning mock data');
-      return {
-        city,
-        country: country || 'Unknown',
-        temperature: 23.5,
-        feelsLike: 22.8,
-        condition: 'Clear',
-        description: 'clear sky',
-        humidity: 65,
-        windSpeed: 5.2,
-        timestamp: new Date().toISOString(),
-      };
+      throw new Error('Live weather is not configured on the server (OPENWEATHER_API_KEY is missing).');
     }
 
     try {
       const query = country ? `${city},${country}` : city;
       const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(query)}&appid=${apiKey}&units=metric`;
       
-      const response = await fetch(url);
-      
+      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+
+      if (response.status === 404) {
+        throw new Error(`No weather data found for "${query}". Try adding the country code, e.g. "${city}, JP".`);
+      }
       if (!response.ok) {
         throw new Error(`OpenWeatherMap API error: ${response.status} ${response.statusText}`);
       }

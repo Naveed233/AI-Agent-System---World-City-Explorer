@@ -3,7 +3,8 @@
  * Fetches high-quality images for cities, hotels, landmarks
  */
 
-const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || 'EHJfRWraI1VDKFexX8YiAihd0WcnLbWczBhmoWlz4R8';
+// Optional; no hardcoded fallback key (source code is public).
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 const UNSPLASH_API_BASE = 'https://api.unsplash.com';
 
 export interface UnsplashImage {
@@ -26,6 +27,7 @@ export async function searchUnsplashImages(
   count: number = 1,
   orientation: 'landscape' | 'portrait' | 'squarish' = 'landscape'
 ): Promise<UnsplashImage[]> {
+  if (!UNSPLASH_ACCESS_KEY) return [];
   try {
     const url = `${UNSPLASH_API_BASE}/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&orientation=${orientation}`;
     
@@ -76,6 +78,7 @@ export async function getRandomUnsplashImage(
   query: string,
   orientation: 'landscape' | 'portrait' | 'squarish' = 'landscape'
 ): Promise<UnsplashImage | null> {
+  if (!UNSPLASH_ACCESS_KEY) return null;
   try {
     const url = `${UNSPLASH_API_BASE}/photos/random?query=${encodeURIComponent(query)}&orientation=${orientation}`;
     

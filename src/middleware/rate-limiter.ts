@@ -30,6 +30,7 @@ const RATE_LIMIT_CONFIG = {
     flight: 20, // 20 flight searches per hour
     hotel: 20, // 20 hotel searches per hour
     currency: 50, // 50 currency conversions per hour
+    search: 30, // 30 web searches per hour (SerpApi free plan is 250 a month)
   },
 };
 
@@ -92,7 +93,7 @@ export function checkRateLimit(
  */
 export function checkToolRateLimit(
   identifier: string,
-  toolName: 'flight' | 'hotel' | 'currency'
+  toolName: 'flight' | 'hotel' | 'currency' | 'search'
 ): {
   allowed: boolean;
   remaining: number;
@@ -167,6 +168,7 @@ export function resetRateLimit(identifier: string): void {
   rateLimits.delete(`${identifier}:flight`);
   rateLimits.delete(`${identifier}:hotel`);
   rateLimits.delete(`${identifier}:currency`);
+  rateLimits.delete(`${identifier}:search`);
   
   console.log(`✅ [Rate Limiter] Reset limits for: ${identifier}`);
 }
@@ -212,7 +214,8 @@ export function getIdentifier(req: any): string {
 }
 
 // Auto-cleanup every 10 minutes
-setInterval(cleanupExpiredLimits, 600000);
+// unref: a cleanup timer should never be the thing keeping the process alive (tests, scripts)
+setInterval(cleanupExpiredLimits, 600000).unref();
 
 console.log('✅ [Rate Limiter] Initialized with limits:', RATE_LIMIT_CONFIG);
 

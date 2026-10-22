@@ -220,8 +220,33 @@ export const CITY_TO_IATA: Record<string, string> = {
   'NAGOYA': 'NGO',
   'SAPPORO': 'CTS',
   'FUKUOKA': 'FUK',
-  'KYOTO': 'UKY',
+  'KYOTO': 'KIX', // Kyoto has no airport; Kansai International serves it
   'OKINAWA': 'OKA',
+  // Japanese-script names (the assistant replies in Japanese by default)
+  '東京': 'NRT',
+  '羽田': 'HND',
+  '成田': 'NRT',
+  '大阪': 'KIX',
+  '関西': 'KIX',
+  '京都': 'KIX',
+  '名古屋': 'NGO',
+  '札幌': 'CTS',
+  '福岡': 'FUK',
+  '沖縄': 'OKA',
+  '那覇': 'OKA',
+  'ソウル': 'ICN',
+  '台北': 'TPE',
+  '香港': 'HKG',
+  '上海': 'PVG',
+  '北京': 'PEK',
+  'バンコク': 'BKK',
+  'シンガポール': 'SIN',
+  'ロンドン': 'LHR',
+  'パリ': 'CDG',
+  'ニューヨーク': 'JFK',
+  'ロサンゼルス': 'LAX',
+  'ホノルル': 'HNL',
+  'シドニー': 'SYD',
   
   // China
   'BEIJING': 'PEK',
@@ -594,31 +619,32 @@ export const CITY_TO_IATA: Record<string, string> = {
 };
 
 /**
- * Get IATA code for a city name
- * Handles variations and returns best match
+ * Resolve a city name or airport code to an IATA airport code.
+ * Returns null when unsure. The old version guessed the first three letters
+ * ("Kyoto" -> "KYO") and matched short keys as substrings ("Milan" contains "LA" -> LAX),
+ * which sent real searches to the wrong airport.
  */
-export function getIATACode(cityOrCode: string): string {
-  const city = cityOrCode.toUpperCase().trim();
+export function getIATACode(cityOrCode: string): string | null {
+  const city = cityOrCode.normalize('NFKC').toUpperCase().trim().replace(/\s+/g, ' ');
+  if (!city) return null;
 
-  // If already a 3-letter code, return it
-  if (/^[A-Z]{3}$/.test(city)) {
-    return city;
-  }
+  // Already an airport code
+  if (/^[A-Z]{3}$/.test(city)) return city;
 
-  // Direct lookup
-  if (CITY_TO_IATA[city]) {
-    return CITY_TO_IATA[city];
-  }
+  // "Tokyo (HND)" or "Haneda HND"
+  const embedded = city.match(/\b([A-Z]{3})\b\)?$/);
+  if (embedded && Object.values(CITY_TO_IATA).includes(embedded[1])) return embedded[1];
 
-  // Try partial match (for cases like "New York NY")
+  if (CITY_TO_IATA[city]) return CITY_TO_IATA[city];
+
+  // "New York, NY" or "Paris France": match a known city at the start, whole words only
+  const head = city.split(/[,(]/)[0].trim();
+  if (CITY_TO_IATA[head]) return CITY_TO_IATA[head];
   for (const [key, value] of Object.entries(CITY_TO_IATA)) {
-    if (city.includes(key) || key.includes(city)) {
-      return value;
-    }
+    if (key.length >= 4 && (head.startsWith(key + ' ') || head === key)) return value;
   }
 
-  // If no match, return first 3 letters as fallback
-  return city.substring(0, 3);
+  return null;
 }
 
 /**
