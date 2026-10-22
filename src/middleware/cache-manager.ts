@@ -229,7 +229,8 @@ export async function getCacheStats(): Promise<{
 }
 
 // Auto-cleanup in-memory cache every 5 minutes
-setInterval(cleanupExpiredMemoryCache, 300000);
+// unref: a cleanup timer should never be the thing keeping the process alive (tests, scripts)
+setInterval(cleanupExpiredMemoryCache, 300000).unref();
 
 // Initialize cache on module load
 initializeCache();

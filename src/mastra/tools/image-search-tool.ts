@@ -7,7 +7,8 @@ import { z } from 'zod';
  * Priority: Wikipedia → Unsplash API → Fallback
  */
 
-const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || 'EHJfRWraI1VDKFexX8YiAihd0WcnLbWczBhmoWlz4R8';
+// Optional. Without it the tool uses Wikipedia only. Never hardcode the key: source code is public.
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
 export const imageSearchTool = createTool({
   id: 'imageSearchTool',
@@ -19,7 +20,7 @@ export const imageSearchTool = createTool({
   outputSchema: z.object({
     image_url: z.string().describe('Full-size image URL'),
     thumb_url: z.string().describe('Thumbnail image URL (smaller, faster)'),
-    source: z.enum(['wikipedia', 'unsplash', 'fallback']),
+    source: z.enum(['wikipedia', 'unsplash', 'none']).describe('"none" means no real photo was found: do not embed an image'),
     attribution: z.string().describe('Attribution text (required by some sources)'),
     photographer: z.string().optional(),
     width: z.number().optional(),
@@ -52,9 +53,10 @@ export const imageSearchTool = createTool({
       console.log(`⚠️ [Image Search] Unsplash failed for "${query}":`, error);
     }
 
-    // Fallback: Use Lorem Picsum with query-based ID
-    console.log(`📷 [Image Search] Using fallback image for: "${query}"`);
-    return getFallbackImage(query);
+    // No real photo found. The old fallback returned a random Lorem Picsum photo,
+    // which the bot then showed as if it were the attraction.
+    console.log(`📷 [Image Search] No image found for: "${query}"`);
+    return { image_url: '', thumb_url: '', source: 'none' as const, attribution: '' };
   },
 });
 
@@ -108,6 +110,7 @@ async function searchWikipediaImage(query: string): Promise<any | null> {
  * Search Unsplash for images using their API
  */
 async function searchUnsplashImage(query: string): Promise<any | null> {
+  if (!UNSPLASH_ACCESS_KEY) return null;
   try {
     const searchUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`;
     
@@ -145,19 +148,3 @@ async function searchUnsplashImage(query: string): Promise<any | null> {
     return null;
   }
 }
-
-/**
- * Generate a consistent fallback image based on query
- */
-function getFallbackImage(query: string): any {
-  // Generate a consistent seed from the query for consistent images
-  const seed = query.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
-  
-  return {
-    image_url: `https://picsum.photos/seed/${seed}/800/600`,
-    thumb_url: `https://picsum.photos/seed/${seed}/400/300`,
-    source: 'fallback' as const,
-    attribution: 'Image from Lorem Picsum',
-  };
-}
-

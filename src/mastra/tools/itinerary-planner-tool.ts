@@ -2,7 +2,6 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { weatherTool } from './weather-tool';
 import { cityFactsTool } from './city-facts-tool';
-import { webSearchTool } from './web-search-tool';
 
 /**
  * Advanced Itinerary Planner Tool
@@ -118,40 +117,17 @@ export const itineraryPlannerTool = createTool({
       // Step 3: Get accommodation suggestions
       thinking += '🏨 Step 3: Finding accommodation options...\n';
       
-      const hotelSearch = await webSearchTool.execute({
-        context: {
-          query: `budget hotels in ${city} under $${perNightBudget} per night`,
-          maxResults: 3,
-        },
-        runtimeContext: {} as any,
-      });
-      
       const accommodationSuggestions = [
         `Budget Hotels ($${Math.floor(perNightBudget * 0.6)}-${perNightBudget}/night): Check Booking.com, Hotels.com for central locations`,
         `Airbnb Apartments ($${Math.floor(perNightBudget * 0.7)}-${Math.floor(perNightBudget * 1.2)}/night): Great for longer stays with kitchen`,
         `Hostels with private rooms ($${Math.floor(perNightBudget * 0.4)}-${Math.floor(perNightBudget * 0.7)}/night): Social atmosphere, budget-friendly`,
       ];
       
-      if (hotelSearch.results.length > 0) {
-        accommodationSuggestions.push(`💡 Tip: ${hotelSearch.results[0].snippet}`);
-      }
       
       thinking += `✅ Found accommodation options in your budget range\n\n`;
       
       // Step 4: Search for activities based on interests
       thinking += '🎯 Step 4: Planning activities based on your interests...\n';
-      
-      const activitySearches = await Promise.all(
-        interests.map(interest =>
-          webSearchTool.execute({
-            context: {
-              query: `${interest} in ${city} ${country || ''} recommendations`,
-              maxResults: 2,
-            },
-            runtimeContext: {} as any,
-          })
-        )
-      );
       
       thinking += `✅ Researched ${interests.length} interest categories\n\n`;
       

@@ -172,13 +172,33 @@ Create or update your `.env` file:
 ```bash
 # Required
 OPENAI_API_KEY=your_openai_api_key
+SERPAPI_API_KEY=your_serpapi_key        # live flights, hotels and web search (Google via SerpApi)
 
-# Optional (for enhanced functionality)
+# Recommended
 OPENWEATHER_API_KEY=your_openweather_api_key
+EXCHANGERATE_API_KEY=your_exchangerate_key
+
+# Optional
+UNSPLASH_ACCESS_KEY=your_unsplash_key   # extra photo source; Wikipedia is used without it
 RAPIDAPI_KEY=your_rapidapi_key
 ```
 
-> **Note**: The application will use fallback/mock data if external API keys are not provided, allowing you to test functionality immediately.
+> **No mock data.** When a key is missing or an API fails, the tool returns a `status`
+> (`error`, `no_results`, `needs_input`, `rate_limited`) and the agent tells the user live data is
+> unavailable. It never invents prices, flights or weather. The one exception is currency: without
+> `EXCHANGERATE_API_KEY` it uses a small table of approximate rates and labels them `estimated`.
+>
+> `SERAPI_API_KEY` (missing "P") is also accepted, because the key was first saved under that name.
+
+### Testing
+
+```bash
+npm run test:tools   # offline: 51 tests, fetch is stubbed with fixture data, no keys or network needed
+BASE_URL=https://your-server npm run test:live   # live: real OpenAI + about 6 SerpApi searches
+```
+
+The offline tests prove request building, parsing, validation and error handling. Only the live
+check proves the real APIs and the agent's tool choice.
 
 ### Running the Application
 

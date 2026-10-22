@@ -23,9 +23,18 @@ export const currencyConversionTool = createTool({
     rate: z.number(),
     lastUpdated: z.string(),
     tips: z.array(z.string()),
+    status: z.enum(['live', 'estimated', 'unavailable']).optional(),
   }),
   execute: async ({ context }) => {
     const { amount, from, to } = context;
+
+    if (!/^[A-Za-z]{3}$/.test(from) || !/^[A-Za-z]{3}$/.test(to) || !Number.isFinite(amount)) {
+      return {
+        amount, from: from.toUpperCase(), to: to.toUpperCase(), converted: 0, rate: 0,
+        lastUpdated: '', status: 'unavailable' as const,
+        tips: ['Use 3-letter ISO currency codes such as JPY, USD, EUR.'],
+      };
+    }
 
     // Rate limiting check (50 currency conversions per hour per user)
     const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
@@ -50,10 +59,12 @@ export const currencyConversionTool = createTool({
 
     console.log(`💱 [Currency Conversion] Converting ${amount} ${from} to ${to} (Live API) [${rateLimitResult.remaining} remaining]`);
 
-    const API_KEY = process.env.EXCHANGERATE_API_KEY || '80352c8e56592c730903bca6';
+    // No hardcoded fallback key: a key in source code is public and gets revoked or abused.
+    const API_KEY = process.env.EXCHANGERATE_API_KEY;
     const fromUpper = from.toUpperCase();
     
     try {
+      if (!API_KEY) throw new Error('EXCHANGERATE_API_KEY is not set');
       // Fetch live exchange rates with caching (cached for 1 hour since rates don't change often)
       const data = await getOrSet(
         `exchange:${fromUpper}`,
@@ -66,14 +77,15 @@ export const currencyConversionTool = createTool({
             throw new Error(`ExchangeRate API error: ${response.status}`);
           }
 
-          return await response.json();
+          const body = await response.json();
+          // Check inside the fetcher so an error body is never cached for an hour.
+          if (body.result !== 'success') {
+            throw new Error(`API returned error: ${body['error-type']}`);
+          }
+          return body;
         },
         3600 // Cache for 1 hour
       );
-
-      if (data.result !== 'success') {
-        throw new Error(`API returned error: ${data['error-type']}`);
-      }
 
       const rates = data.conversion_rates;
       const toUpper = to.toUpperCase();
@@ -105,6 +117,7 @@ export const currencyConversionTool = createTool({
         rate,
         lastUpdated,
         tips,
+        status: 'live' as const,
       };
 
     } catch (error) {
@@ -121,22 +134,26 @@ export const currencyConversionTool = createTool({
       const fromUpper = from.toUpperCase();
       const toUpper = to.toUpperCase();
 
-      // Try to get rate
-      let rate = 1.0;
+      // Approximate rate only for pairs we actually have. The old code defaulted unknown
+      // pairs to 1.0, so "10000 KRW to THB" silently became 10000 THB.
+      let rate: number | null = null;
+      const viaUsd = (c: string) => (c === 'USD' ? 1 : fallbackRates.USD[c]);
       if (fromUpper === toUpper) {
         rate = 1.0;
       } else if (fallbackRates[fromUpper]?.[toUpper]) {
         rate = fallbackRates[fromUpper][toUpper];
       } else if (fallbackRates[toUpper]?.[fromUpper]) {
-        // Inverse rate
         rate = 1 / fallbackRates[toUpper][fromUpper];
-      } else {
-        // Try through USD
-        if (fromUpper !== 'USD' && toUpper !== 'USD') {
-          const toUSD = fallbackRates[fromUpper]?.USD || 1;
-          const fromUSD = fallbackRates['USD']?.[toUpper] || 1;
-          rate = toUSD * fromUSD;
-        }
+      } else if (viaUsd(fromUpper) && viaUsd(toUpper)) {
+        rate = viaUsd(toUpper) / viaUsd(fromUpper);
+      }
+
+      if (rate === null) {
+        return {
+          amount, from: fromUpper, to: toUpper, converted: 0, rate: 0,
+          lastUpdated: '', status: 'unavailable' as const,
+          tips: [`Live rates are unavailable and there is no stored estimate for ${fromUpper} to ${toUpper}. Do not guess a rate.`],
+        };
       }
 
       const converted = parseFloat((amount * rate).toFixed(2));
@@ -160,6 +177,7 @@ export const currencyConversionTool = createTool({
         rate: parseFloat(rate.toFixed(4)),
         lastUpdated: new Date().toLocaleDateString() + ' (estimated)',
         tips,
+        status: 'estimated' as const,
       };
     }
   },

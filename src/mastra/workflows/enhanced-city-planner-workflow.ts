@@ -204,7 +204,7 @@ const searchFlightsAndHotels = createStep({
           runtimeContext: {} as any,
         });
         flights.push(flightResults);
-        estimatedTransportCost += flightResults.cheapestPrice;
+        estimatedTransportCost += flightResults.cheapestPrice ?? 0;
       }
 
       // Search hotels
@@ -227,7 +227,9 @@ const searchFlightsAndHotels = createStep({
         const end = new Date(checkOut);
         nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       }
-      estimatedAccommodationCost += hotelResults.averagePrice * nights;
+      const nightly = hotelResults.hotels.map((h) => h.pricePerNight).filter((p): p is number => typeof p === 'number');
+      const averageNightly = nightly.length ? nightly.reduce((a, b) => a + b, 0) / nightly.length : 0;
+      estimatedAccommodationCost += averageNightly * nights;
     }
 
     console.log(`✅ [Flights & Hotels] Found options for ${destinations.length} destination(s)`);

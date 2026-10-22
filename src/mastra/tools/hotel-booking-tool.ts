@@ -1,210 +1,143 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { amadeusRequest } from './helpers/amadeus-client';
-import { webSearchTool } from './web-search-tool';
-import { getIATACode } from './helpers/city-iata-mapper';
+import { serpApiSearch, describeSerpApiError, SerpApiError } from './helpers/serpapi-client';
+import { isValidIsoDate, todayIso, addDaysIso, daysBetween } from './helpers/trip-dates';
 import { checkToolRateLimit } from '../../middleware/rate-limiter';
 
 /**
- * Hotel Booking Tool
- * Searches for real hotels using Amadeus API
- * Falls back to web search if API fails
+ * Hotel Search Tool
+ * Live hotel prices from Google Hotels through SerpApi.
+ * Replaces the Amadeus integration, whose fallback returned generic booking-site links.
  */
+
+// SerpApi google_hotels: sort_by 3 = lowest price, 8 = highest rating; hotel_class accepts a comma list of stars.
+const RANGE_FILTERS: Record<string, { sort_by?: number; hotel_class?: string }> = {
+  budget: { sort_by: 3 },
+  'mid-range': { hotel_class: '3,4' },
+  luxury: { hotel_class: '5', sort_by: 8 },
+};
+
+const hotelSchema = z.object({
+  name: z.string(),
+  type: z.string().optional(),
+  pricePerNight: z.number().optional(),
+  totalPrice: z.number().optional(),
+  rating: z.number().optional(),
+  reviews: z.number().optional(),
+  stars: z.number().optional(),
+  amenities: z.array(z.string()),
+  checkInTime: z.string().optional(),
+  link: z.string().optional(),
+  imageUrl: z.string().optional(),
+});
+
+export type HotelOption = z.infer<typeof hotelSchema>;
+
 export const hotelBookingTool = createTool({
   id: 'hotelBookingTool',
-  description: 'Search for real hotels using Amadeus API. Provides actual hotel names, ratings, prices, amenities, and booking links.',
+  description:
+    'Search LIVE hotel prices and ratings (Google Hotels) for a city or area. Call this for any question about hotels, ' +
+    'places to stay or accommodation prices. Returns real hotels with nightly prices, or a status explaining what is missing.',
   inputSchema: z.object({
-    city: z.string().describe('City to search hotels in (e.g., "Paris", "Tokyo", "New York")'),
-    checkIn: z.string().optional().describe('Check-in date (YYYY-MM-DD). Defaults to 7 days from now.'),
-    checkOut: z.string().optional().describe('Check-out date (YYYY-MM-DD). Defaults to 8 days from now.'),
-    guests: z.number().optional().describe('Number of guests (default: 1)'),
-    priceRange: z.enum(['budget', 'mid-range', 'luxury']).optional().describe('Price range preference'),
-    amenities: z.array(z.string()).optional().describe('Required amenities (wifi, pool, gym, parking, etc.)'),
+    city: z.string().min(1).describe('City or area, e.g. "Shinjuku, Tokyo" or "Paris"'),
+    checkIn: z.string().optional().describe('Check-in date YYYY-MM-DD. If omitted, searches 14 days from today and says so.'),
+    checkOut: z.string().optional().describe('Check-out date YYYY-MM-DD. Defaults to 2 nights after check-in.'),
+    guests: z.number().int().optional().describe('Number of adults, 1-10 (default 2)'),
+    priceRange: z.enum(['budget', 'mid-range', 'luxury']).optional().describe('budget sorts by lowest price; mid-range = 3-4 stars; luxury = 5 stars'),
+    currency: z.string().length(3).optional().describe('ISO currency code, e.g. JPY, USD (default USD)'),
   }),
   outputSchema: z.object({
-    city: z.string(),
-    hotels: z.array(z.object({
-      name: z.string(),
-      category: z.string(),
-      pricePerNight: z.number(),
-      rating: z.number(),
-      reviewCount: z.number(),
-      amenities: z.array(z.string()),
-      location: z.string(),
-      distance: z.string(),
-      bookingUrls: z.object({
-        booking: z.string(),
-        hotels: z.string(),
-        airbnb: z.string().optional(),
-      }),
-      highlights: z.array(z.string()),
-    })),
-    averagePrice: z.number(),
-    recommendations: z.array(z.string()),
+    status: z.enum(['ok', 'no_results', 'needs_input', 'error', 'rate_limited']),
+    message: z.string().optional(),
+    search: z.object({
+      city: z.string(),
+      checkIn: z.string(),
+      checkOut: z.string(),
+      nights: z.number(),
+      guests: z.number(),
+      currency: z.string(),
+      datesAssumed: z.boolean(),
+    }).optional(),
+    hotels: z.array(hotelSchema),
+    googleHotelsUrl: z.string().optional(),
     source: z.string(),
   }),
-  execute: async ({ context, runtimeContext }) => {
-    const { 
-      city, 
-      checkIn, 
-      checkOut, 
-      guests = 1, 
-      priceRange = 'mid-range',
-      amenities = []
-    } = context;
+  execute: async ({ context }) => {
+    const source = 'Google Hotels via SerpApi';
+    const empty = { hotels: [] as HotelOption[], source };
 
-    // Rate limiting check (20 hotel searches per hour per user)
-    const identifier = 'demo-user'; // TODO: Get from runtimeContext/auth
-    const rateLimitResult = checkToolRateLimit(identifier, 'hotel');
-    
-    if (!rateLimitResult.allowed) {
-      console.warn(`🚫 [Hotel Booking] Rate limit exceeded for ${identifier}`);
-      return {
-        city,
-        hotels: [],
-        averagePrice: 0,
-        recommendations: [
-          `⚠️ ${rateLimitResult.message}`,
-          `💡 You can search again after the limit resets`,
-          `📊 Remaining searches: ${rateLimitResult.remaining}/20 per hour`,
-        ],
-        source: 'Rate Limited',
-      };
-    }
+    const city = context.city.trim();
+    const guests = context.guests ?? 2;
+    const currency = (context.currency ?? 'USD').toUpperCase();
+    if (!city) return { ...empty, status: 'needs_input' as const, message: 'Which city or area should I search?' };
+    if (guests < 1 || guests > 10) return { ...empty, status: 'needs_input' as const, message: 'Guests must be between 1 and 10.' };
+    if (!/^[A-Z]{3}$/.test(currency)) return { ...empty, status: 'needs_input' as const, message: `"${currency}" is not a currency code.` };
 
-    console.log(`🏨 [Hotel Booking] Searching hotels in ${city} for ${guests} guest(s) (Live API) [${rateLimitResult.remaining} remaining]`);
+    const today = todayIso();
+    const datesAssumed = !context.checkIn;
+    const checkIn = context.checkIn ?? addDaysIso(today, 14);
+    if (!isValidIsoDate(checkIn)) return { ...empty, status: 'needs_input' as const, message: `Check-in "${checkIn}" is not a valid YYYY-MM-DD date.` };
+    if (daysBetween(today, checkIn) < 0) return { ...empty, status: 'needs_input' as const, message: `Check-in ${checkIn} is in the past (today is ${today}).` };
+    const checkOut = context.checkOut ?? addDaysIso(checkIn, 2);
+    if (!isValidIsoDate(checkOut)) return { ...empty, status: 'needs_input' as const, message: `Check-out "${checkOut}" is not a valid YYYY-MM-DD date.` };
+    const nights = daysBetween(checkIn, checkOut);
+    if (nights < 1) return { ...empty, status: 'needs_input' as const, message: 'Check-out must be at least one night after check-in.' };
+    if (nights > 30) return { ...empty, status: 'needs_input' as const, message: 'Stays longer than 30 nights are not supported by this search.' };
 
-    // Default dates
-    const defaultCheckIn = new Date();
-    defaultCheckIn.setDate(defaultCheckIn.getDate() + 7);
-    const checkInDate = checkIn || defaultCheckIn.toISOString().split('T')[0];
+    const search = { city, checkIn, checkOut, nights, guests, currency, datesAssumed };
 
-    const defaultCheckOut = new Date(checkInDate);
-    defaultCheckOut.setDate(defaultCheckOut.getDate() + 1);
-    const checkOutDate = checkOut || defaultCheckOut.toISOString().split('T')[0];
+    const rate = checkToolRateLimit('global', 'hotel');
+    if (!rate.allowed) return { ...empty, status: 'rate_limited' as const, message: rate.message, search };
 
+    let data: any;
     try {
-      // Step 1: Get city IATA code
-      const cityCode = getIATACode(city);
-      console.log(`🔍 [Hotel Booking] "${city}" → IATA code: ${cityCode}`);
-
-      // Step 2: Search hotels by city
-      const hotelListData = await amadeusRequest('/v1/reference-data/locations/hotels/by-city', {
-        cityCode,
-      });
-
-      if (!hotelListData.data || hotelListData.data.length === 0) {
-        throw new Error('No hotels found in this city');
-      }
-
-      // Get hotel IDs (limit to first 10)
-      const hotelIds = hotelListData.data.slice(0, 10).map((h: any) => h.hotelId).join(',');
-
-      // Step 3: Get hotel offers with pricing
-      const offersData = await amadeusRequest('/v3/shopping/hotel-offers', {
-        hotelIds,
-        checkInDate,
-        checkOutDate,
-        adults: guests,
-        currency: 'USD', // TODO: Use user's preferred currency
-      });
-
-      if (!offersData.data || offersData.data.length === 0) {
-        throw new Error('No hotel offers available');
-      }
-
-      console.log(`✅ [Hotel Booking] Found ${offersData.data.length} hotel offers`);
-
-      // Parse hotel offers
-      const hotels = offersData.data.slice(0, 5).map((hotel: any) => {
-        const offer = hotel.offers[0]; // First offer
-        const pricePerNight = parseFloat(offer.price.total);
-        const rating = hotel.hotel.rating || 0;
-
-        return {
-          name: hotel.hotel.name,
-          category: hotel.hotel.type || 'Hotel',
-          pricePerNight,
-          rating,
-          reviewCount: 0, // Amadeus doesn't provide review count
-          amenities: hotel.hotel.amenities || ['WiFi', '24-hour Reception'],
-          location: hotel.hotel.address?.cityName || city,
-          distance: hotel.hotel.address?.lines?.join(', ') || 'City Center',
-          bookingUrls: {
-            booking: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}`,
-            hotels: `https://www.hotels.com/search.do?q-destination=${encodeURIComponent(city)}`,
-            airbnb: `https://www.airbnb.com/s/${encodeURIComponent(city)}`,
-          },
-          highlights: [
-            rating >= 4 ? '⭐ Highly rated' : '',
-            pricePerNight < 100 ? '💰 Great value' : '',
-            'Central location',
-          ].filter(Boolean),
-        };
-      });
-
-      const averagePrice = Math.round(hotels.reduce((sum: number, h: any) => sum + h.pricePerNight, 0) / hotels.length);
-
-      const recommendations = [
-        `💰 Average price: $${averagePrice}/night`,
-        `🏨 ${hotels.length} hotels available for your dates`,
-        `📅 ${checkInDate} to ${checkOutDate}`,
-        `💡 Book directly with hotels for possible discounts`,
-        `🔄 Compare prices on Booking.com, Hotels.com, and Airbnb`,
-      ];
-
-      return {
-        city,
-        hotels,
-        averagePrice,
-        recommendations,
-        source: 'Amadeus API (Live)',
-      };
-
+      data = await serpApiSearch(
+        {
+          engine: 'google_hotels',
+          q: city,
+          check_in_date: checkIn,
+          check_out_date: checkOut,
+          adults: guests,
+          currency,
+          hl: 'en',
+          ...(context.priceRange ? RANGE_FILTERS[context.priceRange] : {}),
+        },
+        6 * 3600, // hotel rates change slower than fares; 6 hours
+      );
     } catch (error) {
-      console.error(`❌ [Hotel Booking] Amadeus API error:`, error);
-      console.log(`⚠️ [Hotel Booking] Falling back to web search`);
-
-      // Fallback to web search
-      const searchQuery = `best hotels in ${city} ${priceRange} ${checkInDate} to ${checkOutDate} ${guests} guests price ratings`;
-      
-      const searchResult = await webSearchTool.execute({
-        context: { query: searchQuery },
-        runtimeContext: runtimeContext || ({} as any),
-      });
-
-      // Return web search results in a compatible format
-      return {
-        city,
-        hotels: [{
-          name: `Search hotels in ${city}`,
-          category: 'Information',
-          pricePerNight: 0,
-          rating: 0,
-          reviewCount: 0,
-          amenities: [],
-          location: `${city} - Various locations`,
-          distance: 'City-wide',
-          bookingUrls: {
-            booking: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}&checkin=${checkInDate}&checkout=${checkOutDate}&group_adults=${guests}`,
-            hotels: `https://www.hotels.com/search.do?q-destination=${encodeURIComponent(city)}&q-check-in=${checkInDate}&q-check-out=${checkOutDate}&q-rooms=1&q-room-0-adults=${guests}`,
-            airbnb: `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?checkin=${checkInDate}&checkout=${checkOutDate}&adults=${guests}`,
-          },
-          highlights: ['💡 Click links to search on booking platforms'],
-        }],
-        averagePrice: 0,
-        recommendations: [
-          `⚠️ Unable to retrieve live hotel data for ${city} from Amadeus API`,
-          `🔍 Please use these booking platforms to search:`,
-          `   • Booking.com - Click the link above`,
-          `   • Hotels.com - Click the link above`,
-          `   • Airbnb - Click the link above`,
-          `💡 Or search directly on Google: "hotels in ${city}"`,
-          `📅 Your dates: ${checkInDate} to ${checkOutDate}`,
-          `👥 Guests: ${guests}`,
-        ],
-        source: 'Manual Search Required (API Unavailable)',
-      };
+      console.error('[hotelBookingTool]', error instanceof SerpApiError ? `${error.code}: ${error.message}` : error);
+      const noResults = error instanceof SerpApiError && error.code === 'no_results';
+      return { ...empty, status: noResults ? ('no_results' as const) : ('error' as const), message: describeSerpApiError(error), search };
     }
+
+    const hotels = parseHotels(data);
+    const googleHotelsUrl = typeof data?.search_metadata?.google_hotels_url === 'string' ? data.search_metadata.google_hotels_url : undefined;
+    if (hotels.length === 0) {
+      return { ...empty, status: 'no_results' as const, message: `No hotels found for "${city}" on those dates.`, search, googleHotelsUrl };
+    }
+    return { status: 'ok' as const, search, hotels, googleHotelsUrl, source };
   },
 });
+
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+
+/** Compact list of up to 6 properties. Ads are skipped: they are paid placements, not search results. */
+export function parseHotels(data: any): HotelOption[] {
+  const list: any[] = Array.isArray(data?.properties) ? data.properties : [];
+  return list
+    .filter((p) => typeof p?.name === 'string' && p.name.trim())
+    .slice(0, 6)
+    .map((p) => ({
+      name: p.name.trim(),
+      type: typeof p.type === 'string' ? p.type : undefined,
+      pricePerNight: num(p.rate_per_night?.extracted_lowest),
+      totalPrice: num(p.total_rate?.extracted_lowest),
+      rating: num(p.overall_rating),
+      reviews: num(p.reviews),
+      stars: num(p.extracted_hotel_class),
+      amenities: (Array.isArray(p.amenities) ? p.amenities : []).filter((a: unknown) => typeof a === 'string').slice(0, 6),
+      checkInTime: typeof p.check_in_time === 'string' ? p.check_in_time : undefined,
+      link: typeof p.link === 'string' && /^https?:\/\//.test(p.link) ? p.link : undefined,
+      imageUrl: typeof p.images?.[0]?.thumbnail === 'string' ? p.images[0].thumbnail : undefined,
+    }));
+}

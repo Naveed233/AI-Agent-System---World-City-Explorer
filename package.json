@@ -4,6 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "npx tsx test-agent.ts",
+    "test:tools": "node --import tsx --test tests/tools.test.ts",
+    "test:live": "npx tsx tests/live-agent-check.ts",
     "dev": "mastra dev",
     "build": "mastra build",
     "start": "mastra start",
